@@ -36,6 +36,10 @@ def args_parse(argv):
                       help="prints the output of the program to the console.",
                       default=False)
                       
+    parser.add_option('--send-stdout', dest='send_stdout', action='store_true',
+                      help="redirects the stdout to the hpx-dashboard server such that it can be read from there",
+                      default=False)
+                      
     parser.add_option('-a', '--address', dest='host',
                       help="ip-address to which the parsed data will be send (it needs an active hpx-dashboard server running)",
                       default='127.0.0.1')
@@ -78,7 +82,7 @@ async def amain(argv):
         logger.error(f"Timeout error: could not connect to {opt.host}:{opt.port} after {opt.timeout} seconds")
         return 1
         
-    parser = HPXParser(opt.out_file, opt.print_out, opt.strip_hpx_counters)
+    parser = HPXParser(opt.out_file, opt.print_out, opt.strip_hpx_counters, opt.send_stdout)
     queue = asyncio.Queue()
 
     producer = asyncio.ensure_future(parser.start_collection(input_stream, queue))
