@@ -81,15 +81,14 @@ async def amain(argv):
     parser = HPXParser(opt.out_file, opt.print_out, opt.strip_hpx_counters)
     queue = asyncio.Queue()
 
-    producer = asyncio.create_task(parser.start_collection(input_stream, queue))
-    consumer = asyncio.create_task(tcpclient.send_data(tcp_writer, queue))
+    producer = asyncio.ensure_future(parser.start_collection(input_stream, queue))
+    consumer = asyncio.ensure_future(tcpclient.send_data(tcp_writer, queue))
 
     await asyncio.gather(producer)
     await queue.join()
-    print("SDf")
     consumer.cancel()
     return 0
 
 if __name__ == '__main__':
-    return_code = asyncio.run(amain(sys.argv))
+    return_code = asyncio.get_event_loop().run_until_complete(amain(sys.argv))
     sys.exit(return_code)
