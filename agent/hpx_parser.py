@@ -27,7 +27,6 @@ class HPXParser:
         self.is_counter_descriptions_complete = False
         self.collect_counter_infos = False
         self.current_counter_name = ''
-        self.skip_lines = ["(replace '*' below with the appropriate sequence number)", "-"*56, "-"*78]
 
         self.out_file_handler = None
         if out_file:
@@ -97,8 +96,6 @@ class HPXParser:
         elif line == "Information about available counter instances":
             self.collect_counter_infos = True
             return True
-        elif line in self.skip_lines:
-            return True
 
         # Try to extract fullname, helptext, type and version from counter infos if they exist
         split = line.split(":")
@@ -136,6 +133,7 @@ class HPXParser:
             queue for putting the parsed data to be send via TCP
         """ 
 
+        queue.put("transmission_begin".encode())
         for line in input_stream:
             strip_line = await self.parse_line(line, queue)
             strip_line = strip_line and self.strip_hpx_counters
@@ -147,3 +145,5 @@ class HPXParser:
                 self.out_file_handler.write(line)
             if self.send_stdout and not strip_line:
                 await queue.put(pickle.dumps(('line', line)))
+                
+        queue.put("transmission_end".encode())
