@@ -1,23 +1,31 @@
+# -*- coding: utf-8 -*-
+#
+# HPX - dashboard
+#
+# Copyright (c) 2020 - ETH Zurich
+# All rights reserved
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
 """Wrapper around the python logging module
 """
-
-__copyright__ = "Copyright (C) 2020 ETHZ"
-__licence__ = "BSD 3"
 
 import logging
 import sys
 
 from singleton import Singleton
 
+
 class Logger(metaclass=Singleton):
     """Logging class which is a wrapper around the logging module.
-    
-    The Logger class is a wrapper around the logging module which allows multiple  console output or file output. Logger is a singleton, which any call to the  class will always return the same instance.
+
+    The Logger class is a wrapper around the logging module which allows multiple console output
+    or file output. Logger is a singleton.
     """
 
-    def __init__(self, name: str, formating='%(levelname)s - %(message)s'):
+    def __init__(self, name: str, formating="%(levelname)s - %(message)s"):
         """Sets the logging module with the specified format and logger name
-        
+
         Parameters
         ----------
         name
@@ -48,7 +56,7 @@ class Logger(metaclass=Singleton):
 
     def addHandler(self, handler, verbosity: int) -> None:
         """Adds a custom logging StreamHandler to the logging module
-        
+
         Parameters
         ----------
         handler : StreamHandler
@@ -77,11 +85,13 @@ class Logger(metaclass=Singleton):
 
         Warning
         -------
-        Beware that the logger will add first erase any content which could be in filename before writing the log."""
+        Beware that the logger will add first erase any content which could be in
+        filename before writing the log.
+        """
 
         if not self.log_file:
             # Erase any content of the file
-            with open(filename, 'w') as file:
+            with open(filename, "w") as file:
                 file.close()
 
             file_log_handler = logging.FileHandler(filename)
@@ -108,7 +118,7 @@ class Logger(metaclass=Singleton):
 
     def flush(self):
         """Flushes the last entry in all log handlers."""
-        for h in logging.getLogger(name).handlers:
+        for h in logging.getLogger(self.name).handlers:
             h.flush()
 
         # Dirty hack for flushing the console, because of the NullHandler
@@ -118,7 +128,7 @@ class Logger(metaclass=Singleton):
 
     def info(self, message: str, flush=False) -> None:
         """Emits an information in the log.
-        
+
         Parameters
         ----------
         message
@@ -131,7 +141,7 @@ class Logger(metaclass=Singleton):
 
     def warning(self, message: str, flush=False) -> None:
         """Emits a warning in the log.
-        
+
         Parameters
         ----------
         message
@@ -144,7 +154,7 @@ class Logger(metaclass=Singleton):
 
     def error(self, message: str, flush=False) -> None:
         """Emits an error in the log.
-        
+
         Parameters
         ----------
         message
@@ -154,4 +164,3 @@ class Logger(metaclass=Singleton):
         if flush:
             self.flush()
         self.logger.error(message)
-

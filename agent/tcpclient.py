@@ -1,15 +1,18 @@
-"""
-"""
+# -*- coding: utf-8 -*-
+#
+# HPX - dashboard
+#
+# Copyright (c) 2020 - ETH Zurich
+# All rights reserved
+#
+# SPDX-License-Identifier: BSD-3-Clause
 
-__copyright__ = "Copyright (C) 2020 ETHZ"
-__licence__ = "BSD 3"
+"""
+"""
 
 import asyncio
 import time
 
-class TimeOutError(Exception):
-    """Exception class for timeouts"""
-    pass
 
 async def connect(host: str, port: int, timeout=2):
     """"""
@@ -18,23 +21,19 @@ async def connect(host: str, port: int, timeout=2):
     while True:
         try:
             _, writer = await asyncio.open_connection(host, port)
-        except:
+        except (asyncio.TimeoutError, ConnectionRefusedError):
             pass
-        finally:
-            break
 
         if time.time() - prev_time > timeout:
             break
         time.sleep(0.01)
 
-    if not writer:
-        raise TimeOutError
-
     return writer
+
 
 async def send_data(writer, queue):
     """"""
     while True:
         line = await queue.get()
-        writer.write(line + b'\r\n')
+        writer.write(line + b"\r\n")
         queue.task_done()

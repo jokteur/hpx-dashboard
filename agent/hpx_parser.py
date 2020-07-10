@@ -1,19 +1,31 @@
+# -*- coding: utf-8 -*-
+#
+# HPX - dashboard
+#
+# Copyright (c) 2020 - ETH Zurich
+# All rights reserved
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
 """Module for parsing the stdout of an HPX program.
 """
 
-__copyright__ = "Copyright (C) 2020 ETHZ"
-__licence__ = "BSD 3"
-
-import asyncio
 import pickle
 import re
+
 
 class HPXParser:
     """"""
 
-    def __init__(self, out_file=None, print_out=False, strip_hpx_counters=False, send_stdout=False):
+    def __init__(
+        self,
+        out_file=None,
+        print_out=False,
+        strip_hpx_counters=False,
+        send_stdout=False,
+    ):
         """Initializes the data collectors
-        
+
         Parameters
         ----------
         out_file : str
@@ -21,16 +33,17 @@ class HPXParser:
         print_out : bool
             if true, prints the output of the program to the console
         strip_hpx_counters: bool
-            if true, when printing either to the console or a file, the hpx performance counters and similar informations are stripped from the output
+            if true, when printing either to the console or a file, the hpx performance counters
+            and similar informations are stripped from the output
         """
         self.counter_descriptions = {}
         self.is_counter_descriptions_complete = False
         self.collect_counter_infos = False
-        self.current_counter_name = ''
+        self.current_counter_name = ""
 
         self.out_file_handler = None
         if out_file:
-            self.out_file_handler = open(out_file, 'w')
+            self.out_file_handler = open(out_file, "w")
 
         self.out_file = out_file
         self.print_out = print_out
@@ -39,7 +52,7 @@ class HPXParser:
 
     async def parse_line(self, line, queue):
         """Parses a line and if the lines has some hpx performance counter data, it is added to the data
-        
+
         Returns
         -------
         bool
@@ -48,29 +61,37 @@ class HPXParser:
 
         line = line.strip()
 
-        # Regex based on https://stellar-group.github.io/hpx/docs/sphinx/latest/html/manual/optimizing_hpx_applications.html#performance-counter-names
-        # matches:                      objectname                     countername    
-        #                                   |                               |        
-        #                        /‾‾‾‾‾‾‾‾‾‾ ‾‾‾‾‾‾‾‾‾‾‾\            /‾‾‾‾‾‾ ‾‾‾‾‾‾‾\ 
-        countername_regex = '"?/([a-zA-Z_][a-zA-Z_0-9\-]*)(\{.*\})?/([a-zA-Z_0-9\-/]+)@?([a-zA-Z_0-9\-]+)?"?'
-        #                                                  \__ __/                        \______ ________/
-        #                                                     |                                  |         
-        #                                              full_instancename                 optional parameters
+        # Regex based on
+        # https://stellar-group.github.io/hpx/docs/sphinx/latest/html/manual/optimizing_hpx_applications.html#performance-counter-names
+        objectname_re = "/([a-zA-Z_][a-zA-Z_0-9\\-]*)"
+        fullinstancename_re = "(\\{.*\\})?"
+        countername_re = "/([a-zA-Z_0-9\\-/]+)"
+        parameters_re = "@?([a-zA-Z_0-9\\-]+)?"
+        regex = (
+            '"?'
+            + objectname_re
+            + fullinstancename_re
+            + countername_re
+            + parameters_re
+            + '"?'
+        )
 
-        result = re.match("^" + countername_regex, line)
-        
+        result = re.match("^" + regex, line)
+
         is_line_hpx_counter_data = False
         if result:
-            # As there can be commas inside the counter name, it is essential to split the line only after the name
-            # The first split should be an empty string, because we split just after the counter name
-            line_split = line[result.span()[1]:].split(",")
-            if len(line_split) in [5,6]:
+            # As there can be commas inside the counter name, it is essential to split the line
+            # only after the name. The first split should be an empty string, because we split
+            # just after the counter name
+            regex_end = result.span()[1]
+            line_split = line[regex_end:].split(",")
+            if len(line_split) in [5, 6]:
                 objectname = result.group(1)
                 full_instancename = result.group(2)
                 countername = result.group(3)
                 parameters = result.group(4)
 
-                fullname = objectname + '/' + countername
+                fullname = objectname + "/" + countername
 
                 value_unit = None
                 if len(line_split) == 6:
@@ -79,17 +100,35 @@ class HPXParser:
                 is_line_hpx_counter_data = True
 
         if is_line_hpx_counter_data:
-            # It is assumed that once the first hpx counter is outputed, the --hpx:list-counter-infos is finished.
+            # It is assumed that once the first hpx performance counter is outputed, the
+            # --hpx:list-counter-infos is finished.
             # This means that the counter informations can be sent
             if self.collect_counter_infos:
                 self.collect_counter_infos = False
                 self.is_counter_descriptions_complete = True
-                await queue.put(pickle.dumps(('list-counters', self.counter_descriptions)))
+                await queue.put(
+                    pickle.dumps(("list-counters", self.counter_descriptions))
+                )
 
-            # The given data in order : fullname, full_instancename, parameters, sequence_number, 
+            # The given data in order : fullname, full_instancename, parameters, sequence_number,
             # timestamp, timestamp_unit, value, value_unit
-            await queue.put(pickle.dumps(('counter-data', [fullname, full_instancename, parameters, 
-                int(line_split[1]), line_split[2], line_split[3], line_split[4], value_unit])))
+            await queue.put(
+                pickle.dumps(
+                    (
+                        "counter-data",
+                        [
+                            fullname,
+                            full_instancename,
+                            parameters,
+                            int(line_split[1]),
+                            line_split[2],
+                            line_split[3],
+                            line_split[4],
+                            value_unit,
+                        ],
+                    )
+                )
+            )
             return True
 
         # Lines generated by --hpx:list-counter-infos
@@ -102,28 +141,35 @@ class HPXParser:
         if len(split) > 1:
             split[0] = split[0].strip()
             split[1] = split[1].strip()
-            if self.collect_counter_infos and "fullname" in split[0] and re.match(countername_regex, split[1]):
+            if (
+                self.collect_counter_infos
+                and "fullname" in split[0]
+                and re.match(regex, split[1])
+            ):
                 self.current_counter_name = split[1]
                 self.counter_descriptions[self.current_counter_name] = {}
                 return True
             elif self.collect_counter_infos and self.current_counter_name:
                 if split[0] in ["helptext", "version", "type"]:
-                    self.counter_descriptions[self.current_counter_name][split[0]] = "".join(split[1:])
+                    self.counter_descriptions[self.current_counter_name][
+                        split[0]
+                    ] = "".join(split[1:])
                     if split[0] == "version":
-                        self.current_counter_name = ''
+                        self.current_counter_name = ""
                     return True
 
-        # If we arrive here, it means that the line is neither some counter infos or  performance counter data
-        # Still there could be `\n` between the counter infos that we want to count as part of hpx output
+        # If we arrive here, it means that the line is neither some counter infos or performance
+        # counter data. There could be still `\n` between the counter infos that we want to count
+        # as part of hpx output
         if self.collect_counter_infos and not self.is_counter_descriptions_complete:
             return True
         else:
             return False
-                
+
     async def start_collection(self, input_stream, queue):
-        """Starts collecting from the input stream until the HPX program is finished or interrupted 
+        """Starts collecting from the input stream until the HPX program is finished or interrupted
         and sends the data to the hpx-dashboard server.
-        
+
         Parameters
         ----------
         input_stream : mixed
@@ -131,19 +177,19 @@ class HPXParser:
             TCP client to which the data will be send
         queue : asyncio.Queue
             queue for putting the parsed data to be send via TCP
-        """ 
+        """
 
         queue.put("transmission_begin".encode())
         for line in input_stream:
             strip_line = await self.parse_line(line, queue)
             strip_line = strip_line and self.strip_hpx_counters
 
-            # Take care of redirecting the output of the program to either the console or a file output
+            # Take care of redirecting the output of the program
             if self.print_out and not strip_line:
                 print(line.strip())
             if self.out_file_handler and not strip_line:
                 self.out_file_handler.write(line)
             if self.send_stdout and not strip_line:
-                await queue.put(pickle.dumps(('line', line)))
-                
+                await queue.put(pickle.dumps(("line", line)))
+
         queue.put("transmission_end".encode())

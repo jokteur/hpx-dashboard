@@ -10,8 +10,8 @@ import optparse
 from tornado.ioloop import IOLoop
 
 from logger import Logger
-from singleton import Singleton
 from tcplistener import Server
+
 
 def args_parse(argv):
     """
@@ -19,15 +19,20 @@ def args_parse(argv):
     """
     parser = optparse.OptionParser()
 
-    parser.add_option('-p', '--port-listen', dest='port_listen',
-                      help="port on which the server listens for the incoming parsed data",
-                      default=5267)
+    parser.add_option(
+        "-p",
+        "--port-listen",
+        dest="port_listen",
+        help="port on which the server listens for the incoming parsed data",
+        default=5267,
+    )
 
     return parser.parse_args(argv)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     """Main entry for the hpx data server."""
-    logger = Logger('hpx-dashboard-server')
+    logger = Logger("hpx-dashboard-server")
     opt, args = args_parse(sys.argv[1:])
 
     Server().listen(opt.port_listen)
