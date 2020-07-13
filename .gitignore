@@ -4,3 +4,4 @@ __pycache__
 
 # Build
 pip-wheel*
+*.egg*
