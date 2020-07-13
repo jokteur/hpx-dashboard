@@ -11,12 +11,14 @@
 """
 
 import pickle
+import traceback
 
 from tornado.tcpserver import TCPServer
 from tornado.iostream import StreamClosedError
 
 from .data_aggregator import DataAggregator
 from ..common.constants import message_separator
+from ..common.logger import Logger
 
 
 class Server(TCPServer):
@@ -34,23 +36,28 @@ class Server(TCPServer):
             address to read from
         """
         data_aggregator = DataAggregator()
+        logger = Logger()
 
         while True:
             try:
                 response = await stream.read_until(message_separator)
                 response_type, data = pickle.loads(response)
 
-                if data_aggregator.current_run is not None:
-                    # if response_type == "counter-data":
-                    #     data_aggregator.current_collection.add_line(*data)
-                    if response_type == "line":
-                        print(data)
-                    elif response_type == "transmission_begin":
-                        data_aggregator.new_collection(data)
-                    elif response_type == "transmission_end":
-                        data_aggregator.finalize_current_collection(data)
-                    elif response_type == "counter-infos":
-                        data_aggregator.set_counter_infos(data)
+                if response_type == "counter-data" and data_aggregator.current_run is not None:
+                    data_aggregator.current_collection().add_line(*data)
+                elif response_type == "line":
+                    print(data)
+                elif response_type == "transmission_begin":
+                    print("BEGIN")
+                    data_aggregator.new_collection(data)
+                elif response_type == "transmission_end":
+                    data_aggregator.finalize_current_collection(data)
+                    print("END")
+                elif response_type == "counter-infos" and data_aggregator.current_run is not None:
+                    data_aggregator.set_counter_infos(data)
             except StreamClosedError:
                 stream.close(exc_info=True)
                 return
+            except Exception as e:
+                logger.error(e)
+                traceback.print_exc()

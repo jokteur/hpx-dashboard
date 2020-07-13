@@ -24,6 +24,7 @@ class DataAggregator(metaclass=Singleton):
         """Initializes the data of the server."""
         self.data = []
         self.current_run = None
+        self.last_run = None
 
     def new_collection(self, begin_time: float) -> None:
         """Adds a new DataCollection along with a timestamp to the aggregator.
@@ -66,6 +67,15 @@ class DataAggregator(metaclass=Singleton):
         else:
             return None
 
+    def get_last_run(self) -> Union[DataCollection, None]:
+        """Returns the last active DataCollection.
+        If there was no active collection, None is returned.
+        """
+        if self.last_run is not None:
+            return self.data[self.last_run]
+        else:
+            return None
+
     def finalize_current_collection(self, end_time: float) -> None:
         """Finalizes the current collection of data
 
@@ -74,4 +84,5 @@ class DataAggregator(metaclass=Singleton):
         end_time
             time of when the collection has finished"""
         self.data[self.current_run]["end-time"] = end_time
+        self.last_run = self.current_run
         self.current_run = None
