@@ -1,16 +1,23 @@
+# -*- coding: utf-8 -*-
+#
+# HPX - dashboard
+#
+# Copyright (c) 2020 - ETH Zurich
+# All rights reserved
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
+
 """Main entry for the hpx dashboard server
 """
-
-__copyright__ = "Copyright (C) 2020 ETHZ"
-__licence__ = "BSD 3"
 
 import sys
 import optparse
 
 from tornado.ioloop import IOLoop
 
-from logger import Logger
-from tcplistener import Server
+from ..common.logger import Logger
+from .tcp_listener import Server
 
 
 def args_parse(argv):

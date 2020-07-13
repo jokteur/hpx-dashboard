@@ -1,2 +1,6 @@
+# Python
 __pycache__
 .ipynb*
+
+# Build
+pip-wheel*

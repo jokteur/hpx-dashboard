@@ -13,6 +13,8 @@
 import asyncio
 import time
 
+from ..common.constants import message_separator
+
 
 async def connect(host: str, port: int, timeout=2):
     """"""
@@ -35,5 +37,6 @@ async def send_data(writer, queue):
     """"""
     while True:
         line = await queue.get()
-        writer.write(line + b"\r\n")
+        writer.write(line + message_separator)
+        await writer.drain()
         queue.task_done()
