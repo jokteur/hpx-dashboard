@@ -13,7 +13,7 @@
 import logging
 import sys
 
-from singleton import Singleton
+from .singleton import Singleton
 
 
 class Logger(metaclass=Singleton):

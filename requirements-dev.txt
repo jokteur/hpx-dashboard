@@ -1,0 +1,5 @@
+numpy
+streamz
+bokeh>=1.3.4
+holoviews
+pre-commit

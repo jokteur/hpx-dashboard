@@ -19,9 +19,9 @@ import fileinput
 
 import asyncio
 
-from logger import Logger
-import tcpclient
-from hpx_parser import HPXParser
+from ..common.logger import Logger
+from . import tcp_client
+from .hpx_parser import HPXParser
 
 
 def args_parse(argv):
@@ -114,12 +114,12 @@ async def amain(argv):
             input_stream = fileinput.input(files=[opt.input_file])
         else:
             logger.error(
-                "No active pipe is active and no input file has been specified."
+                "No active pipe is active and no input file has been specified. "
                 "Data can not be collected."
             )
             return 1
 
-    tcp_writer = await tcpclient.connect(opt.host, opt.port)
+    tcp_writer = await tcp_client.connect(opt.host, opt.port)
     if not tcp_writer:
         logger.error(
             f"Timeout error: could not connect to {opt.host}:{opt.port}"
@@ -127,13 +127,11 @@ async def amain(argv):
         )
         return 1
 
-    parser = HPXParser(
-        opt.out_file, opt.print_out, opt.strip_hpx_counters, opt.send_stdout
-    )
+    parser = HPXParser(opt.out_file, opt.print_out, opt.strip_hpx_counters, opt.send_stdout)
     queue = asyncio.Queue()
 
     producer = asyncio.ensure_future(parser.start_collection(input_stream, queue))
-    consumer = asyncio.ensure_future(tcpclient.send_data(tcp_writer, queue))
+    consumer = asyncio.ensure_future(tcp_client.send_data(tcp_writer, queue))
 
     await asyncio.gather(producer)
     await queue.join()
