@@ -28,6 +28,9 @@ async def connect(host: str, port: int, timeout=2):
 
         if time.time() - prev_time > timeout:
             break
+
+        if writer:
+            break
         time.sleep(0.01)
 
     return writer
