@@ -24,8 +24,8 @@ class DataCollection:
     def add_line(
         self,
         fullname: str,
-        parameters: Union[str, None],
         full_instance: str,
+        parameters: Union[str, None],
         sequence_number: int,
         timestamp: float,
         timestamp_unit: str,
@@ -62,8 +62,32 @@ class DataCollection:
         if name not in self.data:
             self.data[name] = {}
 
-        line = [sequence_number, timestamp, timestamp_unit, value, value_unit]
+        line = [full_instance, sequence_number, timestamp, timestamp_unit, value, value_unit]
         if full_instance not in self.data[name]:
             self.data[name][full_instance] = [line]
         else:
             self.data[name][full_instance].append(line)
+
+    def get_counter_names(self):
+        """"""
+        return list(self.data.keys())
+
+    def get_data(self, fullname: str, full_instance="*"):
+        """"""
+
+        if fullname not in self.data:
+            return None
+
+        # Wildcard `*` has been used
+        result = []
+        if "*" in full_instance:
+            for key in self.data[fullname].keys():
+                if full_instance.split("*")[0] in key:
+                    result += self.data[fullname][key]
+        else:
+            if full_instance in self.data[fullname]:
+                result = self.data[fullname][full_instance]
+            else:
+                result = None
+
+        return result

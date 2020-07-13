@@ -25,6 +25,7 @@ class DataAggregator(metaclass=Singleton):
         self.data = []
         self.current_run = None
         self.last_run = None
+        self.current_data = None
 
     def new_collection(self, begin_time: float) -> None:
         """Adds a new DataCollection along with a timestamp to the aggregator.
@@ -44,6 +45,7 @@ class DataAggregator(metaclass=Singleton):
             }
         )
         self.current_run = len(self.data) - 1
+        self.current_data = self.data[self.current_run]
 
     def set_counter_infos(self, counter_infos: dict):
         """Sets the counter informations of the current collection.
@@ -57,15 +59,6 @@ class DataAggregator(metaclass=Singleton):
         """
         if self.current_run is not None:
             self.data[self.current_run]["counter-info"] = counter_infos
-
-    def current_collection(self) -> Union[DataCollection, None]:
-        """Returns the current active DataCollection.
-        If no collection is active, None is returned.
-        """
-        if self.current_run is not None:
-            return self.data[self.current_run]["data"]
-        else:
-            return None
 
     def get_last_run(self) -> Union[DataCollection, None]:
         """Returns the last active DataCollection.
@@ -85,4 +78,5 @@ class DataAggregator(metaclass=Singleton):
             time of when the collection has finished"""
         self.data[self.current_run]["end-time"] = end_time
         self.last_run = self.current_run
+        self.current_data = None
         self.current_run = None

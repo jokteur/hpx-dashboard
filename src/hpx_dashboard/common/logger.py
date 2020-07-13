@@ -23,7 +23,7 @@ class Logger(metaclass=Singleton):
     or file output. Logger is a singleton.
     """
 
-    def __init__(self, name: str, formating="%(levelname)s - %(message)s"):
+    def __init__(self, name="hpx-dashboard", formating="%(levelname)s - %(message)s"):
         """Sets the logging module with the specified format and logger name
 
         Parameters

@@ -44,7 +44,7 @@ class Server(TCPServer):
                 response_type, data = pickle.loads(response)
 
                 if response_type == "counter-data" and data_aggregator.current_run is not None:
-                    data_aggregator.current_collection().add_line(*data)
+                    data_aggregator.current_data["data"].add_line(*data)
                 elif response_type == "line":
                     print(data)
                 elif response_type == "transmission_begin":
