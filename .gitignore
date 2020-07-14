@@ -5,3 +5,6 @@ __pycache__
 # Build
 pip-wheel*
 *.egg*
+build
+dist
+sdist
