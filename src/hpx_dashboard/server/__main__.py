@@ -14,10 +14,12 @@
 import sys
 import optparse
 
+from bokeh.server.server import Server
 from tornado.ioloop import IOLoop
 
 from ..common.logger import Logger
-from .tcp_listener import Server
+from .tcp_listener import TCP_Server
+from .app import app
 
 
 def args_parse(argv):
@@ -42,6 +44,12 @@ if __name__ == "__main__":
     logger = Logger("hpx-dashboard-server")
     opt, args = args_parse(sys.argv[1:])
 
-    Server().listen(opt.port_listen)
-    logger.info("Starting the hpx-dashboard server...")
-    IOLoop.instance().start()
+    server = Server({"/": app}, io_loop=IOLoop().current())
+    server.start()
+
+    server.io_loop.add_callback(server.show, "/")
+
+    TCP_Server().listen(5268)
+
+    logger.info("http://localhost:5006")
+    server.io_loop.start()

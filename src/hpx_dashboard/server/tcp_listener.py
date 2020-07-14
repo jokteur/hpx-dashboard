@@ -21,7 +21,7 @@ from ..common.constants import message_separator
 from ..common.logger import Logger
 
 
-class Server(TCPServer):
+class TCP_Server(TCPServer):
     """
     overrides handle_stream"""
 
@@ -45,14 +45,15 @@ class Server(TCPServer):
 
                 if response_type == "counter-data" and data_aggregator.current_run is not None:
                     data_aggregator.current_data["data"].add_line(*data)
+                    data_aggregator.dummy_counter += 1
                 elif response_type == "line":
-                    print(data)
+                    logger.info(data)
                 elif response_type == "transmission_begin":
-                    print("BEGIN")
+                    logger.info("BEGIN")
                     data_aggregator.new_collection(data)
                 elif response_type == "transmission_end":
                     data_aggregator.finalize_current_collection(data)
-                    print("END")
+                    logger.info("END")
                 elif response_type == "counter-infos" and data_aggregator.current_run is not None:
                     data_aggregator.set_counter_infos(data)
             except StreamClosedError:

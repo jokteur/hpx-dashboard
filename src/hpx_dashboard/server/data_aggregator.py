@@ -26,6 +26,7 @@ class DataAggregator(metaclass=Singleton):
         self.current_run = None
         self.last_run = None
         self.current_data = None
+        self.dummy_counter = 0
 
     def new_collection(self, begin_time: float) -> None:
         """Adds a new DataCollection along with a timestamp to the aggregator.
