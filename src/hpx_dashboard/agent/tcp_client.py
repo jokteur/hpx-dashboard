@@ -14,6 +14,7 @@ import asyncio
 import time
 
 from ..common.constants import message_separator
+from ..common.logger import Logger
 
 
 async def connect(host: str, port: int, timeout=2):
@@ -36,10 +37,26 @@ async def connect(host: str, port: int, timeout=2):
     return writer
 
 
-async def send_data(writer, queue):
+async def send_data(host, port, timeout, queue, stop_signal):
     """"""
-    while True:
-        line = await queue.get()
+    writer = await connect(host, port, timeout)
+    logger = Logger()
+
+    if not writer:
+        logger.error(
+            f"Timeout error: could not connect to {host}:{port}" f" after {timeout} seconds"
+        )
+        stop_signal.stop = True
+        return
+
+    while True:  # not stop_signal.stop:
+        line = queue.get()
+
+        if line is None:
+            break
+
         writer.write(line + message_separator)
         await writer.drain()
         queue.task_done()
+
+    return

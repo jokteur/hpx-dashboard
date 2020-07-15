@@ -16,6 +16,8 @@ __licence__ = "BSD 3"
 import sys
 import optparse
 import fileinput
+from queue import Queue
+import threading
 
 import asyncio
 
@@ -71,6 +73,14 @@ def args_parse(argv):
     )
 
     parser.add_option(
+        "--buffer-timeout",
+        dest="buffer_timeout",
+        help="timeout for the buffer to be filled before the data is sent over tcp (in ms)"
+        "If the timeout is set to 0, the data is sent immediately after collection.",
+        default=1,
+    )
+
+    parser.add_option(
         "-a",
         "--address",
         dest="host",
@@ -97,7 +107,18 @@ def args_parse(argv):
     return parser.parse_args(argv)
 
 
-async def amain(argv):
+def launch_io_loop_thread(loop, args):
+    asyncio.set_event_loop(loop)
+
+    loop.run_until_complete(tcp_client.send_data(*args))
+
+
+class Stop:
+    def __init__(self):
+        self.stop = False
+
+
+def amain(argv):
     """Main entry for the hpx performance counter collecting agent program.
 
     If there is an active pipe going into the agent, this will be the default input stream.
@@ -119,26 +140,41 @@ async def amain(argv):
             )
             return 1
 
-    tcp_writer = await tcp_client.connect(opt.host, opt.port)
-    if not tcp_writer:
-        logger.error(
-            f"Timeout error: could not connect to {opt.host}:{opt.port}"
-            f" after {opt.timeout} seconds"
-        )
-        return 1
+    parser = HPXParser(
+        opt.out_file,
+        opt.print_out,
+        opt.strip_hpx_counters,
+        opt.send_stdout,
+        int(opt.buffer_timeout),
+    )
 
-    parser = HPXParser(opt.out_file, opt.print_out, opt.strip_hpx_counters, opt.send_stdout)
-    queue = asyncio.Queue()
+    queue = Queue()  # asyncio.Queue()
 
-    producer = asyncio.ensure_future(parser.start_collection(input_stream, queue))
-    consumer = asyncio.ensure_future(tcp_client.send_data(tcp_writer, queue))
+    # Launch tcp thread
+    stop_signal = Stop()
+    loop = asyncio.new_event_loop()
+    tcp_thread = threading.Thread(
+        target=launch_io_loop_thread,
+        args=(loop, (opt.host, opt.port, opt.timeout, queue, stop_signal)),
+    )
+    tcp_thread.start()
 
-    await asyncio.gather(producer)
-    await queue.join()
-    consumer.cancel()
+    # Launch collection
+    parser.start_collection(input_stream, queue)
+
+    # await asyncio.gather(producer)
+    if not stop_signal.stop:
+        queue.join()
+    else:
+        sys.exit(1)
+    # Send last signal for the thread to kill
+    queue.put(None)
+    stop_signal.stop = True
+    tcp_thread.join()
     return 0
 
 
 if __name__ == "__main__":
-    return_code = asyncio.get_event_loop().run_until_complete(amain(sys.argv))
+    # return_code = asyncio.get_event_loop().run_until_complete(amain(sys.argv))
+    return_code = amain(sys.argv)
     sys.exit(return_code)

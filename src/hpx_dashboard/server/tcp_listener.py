@@ -43,11 +43,17 @@ class TCP_Server(TCPServer):
                 response = await stream.read_until(message_separator)
                 response_type, data = pickle.loads(response)
 
-                if response_type == "counter-data" and data_aggregator.current_run is not None:
-                    data_aggregator.current_data["data"].add_line(*data)
-                    data_aggregator.dummy_counter += 1
-                elif response_type == "line":
-                    logger.info(data)
+                if response_type == "regular-data":
+                    for response_type, sub_data in data:
+                        if (
+                            response_type == "counter-data"
+                            and data_aggregator.current_run is not None
+                        ):
+                            data_aggregator.current_data["data"].add_line(*sub_data)
+                            data_aggregator.dummy_counter += 1
+                        elif response_type == "line":
+                            logger.info(sub_data)
+
                 elif response_type == "transmission_begin":
                     logger.info("BEGIN")
                     data_aggregator.new_collection(data)

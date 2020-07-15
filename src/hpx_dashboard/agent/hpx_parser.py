@@ -19,7 +19,12 @@ class HPXParser:
     """"""
 
     def __init__(
-        self, out_file=None, print_out=False, strip_hpx_counters=False, send_stdout=False,
+        self,
+        out_file=None,
+        print_out=False,
+        strip_hpx_counters=False,
+        send_stdout=False,
+        buffer_timeout=0,
     ):
         """Initializes the data collectors
 
@@ -32,11 +37,16 @@ class HPXParser:
         strip_hpx_counters: bool
             if true, when printing either to the console or a file, the hpx performance counters
             and similar informations are stripped from the output
+        buffer_timeout: None or float
+            time that happens between two TCP sends (in miliseconds)
+            In pratice the buffer of the parser gets filled until a certain time and
+            then the data gets sent once the time is over.
         """
         self.counter_descriptions = {}
         self.is_counter_descriptions_complete = False
         self.collect_counter_infos = False
         self.current_counter_name = ""
+        self.queue = None
 
         self.out_file_handler = None
         if out_file:
@@ -47,7 +57,22 @@ class HPXParser:
         self.strip_hpx_counters = strip_hpx_counters
         self.send_stdout = send_stdout
 
-    async def parse_line(self, line, queue):
+        self.buffer_timeout = buffer_timeout
+        self.last_buffer_send = None
+        self.buffer = []
+
+    def _add_to_buffer(self, data):
+        """Adds the data to the buffer and if the buffer_timeout is elapsed,
+        the buffer is emptied into the queue"""
+
+        self.buffer.append(data)
+
+        if (time.time() - self.last_buffer_send) / 1000 > self.buffer_timeout:
+            self.queue.put(pickle.dumps(("regular-data", self.buffer)))
+            self.last_buffer_send = time.time()
+            self.buffer = []
+
+    def parse_line(self, line):
         """Parses a line and if the lines has some hpx performance counter data, it is added to the data
 
         Returns
@@ -88,23 +113,20 @@ class HPXParser:
 
                 # The given data in order: fullname, full_instancename, parameters, sequence_number,
                 # timestamp, timestamp_unit, value, value_unit
-                queue.put_nowait(
-                    pickle.dumps(
-                        (
-                            "counter-data",
-                            [
-                                fullname,
-                                full_instancename,
-                                parameters,
-                                int(line_split[1]),
-                                float(line_split[2]),
-                                line_split[3],
-                                line_split[4],
-                                value_unit,
-                            ],
-                        )
-                    )
+                data = (
+                    "counter-data",
+                    [
+                        fullname,
+                        full_instancename,
+                        parameters,
+                        int(line_split[1]),
+                        float(line_split[2]),
+                        line_split[3],
+                        line_split[4],
+                        value_unit,
+                    ],
                 )
+                self._add_to_buffer(data)
 
             # It is assumed that once the first hpx performance counter is outputed, the
             # --hpx:list-counter-infos is finished.
@@ -112,7 +134,7 @@ class HPXParser:
             if self.collect_counter_infos:
                 self.collect_counter_infos = False
                 self.is_counter_descriptions_complete = True
-                queue.put_nowait(pickle.dumps(("counter-infos", self.counter_descriptions)))
+                self.queue.put(pickle.dumps(("counter-infos", self.counter_descriptions)))
 
             return True
 
@@ -147,7 +169,7 @@ class HPXParser:
         else:
             return False
 
-    async def start_collection(self, input_stream, queue):
+    def start_collection(self, input_stream, queue):
         """Starts collecting from the input stream until the HPX program is finished or interrupted
         and sends the data to the hpx-dashboard server.
 
@@ -160,9 +182,13 @@ class HPXParser:
             queue for putting the parsed data to be send via TCP
         """
 
-        queue.put_nowait(pickle.dumps(("transmission_begin", time.time())))
+        self.queue = queue
+
+        self.queue.put(pickle.dumps(("transmission_begin", time.time())))
+        self.last_buffer_send = time.time()
+
         for line in input_stream:
-            strip_line = await self.parse_line(line, queue)
+            strip_line = self.parse_line(line)
             strip_line = strip_line and self.strip_hpx_counters
 
             # Take care of redirecting the output of the program
@@ -171,6 +197,9 @@ class HPXParser:
             if self.out_file_handler and not strip_line:
                 self.out_file_handler.write(line)
             if self.send_stdout and not strip_line:
-                queue.put_nowait(pickle.dumps(("line", line)))
+                self._add_to_buffer(("line", line))
 
-        queue.put_nowait(pickle.dumps(("transmission_end", time.time())))
+        if self.buffer:
+            self.queue.put(pickle.dumps(("regular-data", self.buffer)))
+
+        self.queue.put(pickle.dumps(("transmission_end", time.time())))
