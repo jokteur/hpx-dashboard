@@ -67,7 +67,7 @@ class HPXParser:
 
         self.buffer.append(data)
 
-        if (time.time() - self.last_buffer_send) / 1000 > self.buffer_timeout:
+        if (time.time() - self.last_buffer_send) * 1000.0 > self.buffer_timeout:
             self.queue.put(pickle.dumps(("regular-data", self.buffer)))
             self.last_buffer_send = time.time()
             self.buffer = []
