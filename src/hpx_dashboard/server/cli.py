@@ -52,7 +52,7 @@ def server(argv):
     logger = Logger()
     opt = args_parse(sys.argv[1:])
 
-    server = Server({"/": app}, io_loop=IOLoop().current())
+    server = Server({"/": app}, io_loop=IOLoop().current(), port=int(opt.bokeh_port))
     server.start()
 
     server.io_loop.add_callback(server.show, "/")
