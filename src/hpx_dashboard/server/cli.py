@@ -55,7 +55,6 @@ def server(argv):
     server = Server({"/": app}, io_loop=IOLoop().current(), port=int(opt.bokeh_port))
     server.start()
 
-    server.io_loop.add_callback(server.show, "/")
     TCP_Server().listen(opt.listen_port)
 
     logger.info(f"Bokeh server started on http://localhost:{opt.bokeh_port}")
