@@ -20,6 +20,45 @@ class DataCollection:
 
     def __init__(self):
         self.data = {}
+        self.instances = {}
+
+    def _get_instance_infos(self, full_instance: str) -> None:
+        """"""
+        instance_split = full_instance.split("/")
+
+        locality_id = instance_split[0].split("#")[1]
+        thread_id = None
+        pool = None
+        is_total = False
+
+        if "total" in instance_split[1]:
+            is_total = True
+        else:
+            if len(instance_split) == 2:
+                pool = "default"
+                thread_id = instance_split[1].split("#")[1]
+            else:
+                pool = instance_split[1].split("#")[1]
+                thread_id = instance_split[2].split("#")[2]
+
+        return locality_id, thread_id, pool, is_total
+
+    def _add_instance_name(
+        self, locality_id, thread_id=None, pool="default", is_total=True
+    ) -> None:
+        """Adds the instance name to the list of instance names stored in the class."""
+        if locality_id not in self.instances:
+            self.instances[locality_id] = {}
+
+        if is_total and "total" not in self.instances[locality_id]:
+            self.instance[locality_id]["total"] = None
+            return
+
+        if pool not in self.instances[locality_id]:
+            self.instances[locality_id][pool] = {}
+
+        if thread_id not in self.instances[locality_id][pool]:
+            self.instances[locality_id][pool][thread_id] = None
 
     def add_line(
         self,
@@ -67,6 +106,9 @@ class DataCollection:
             self.data[name][full_instance] = [line]
         else:
             self.data[name][full_instance].append(line)
+
+        if not full_instance.startswith("/") and "locality" in full_instance:
+            self._add_instance_name(full_instance)
 
     def get_counter_names(self):
         """"""
