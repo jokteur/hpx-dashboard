@@ -86,7 +86,7 @@ class HPXParser:
         # Regex based on
         # https://stellar-group.github.io/hpx/docs/sphinx/latest/html/manual/optimizing_hpx_applications.html#performance-counter-names
         objectname_re = "/([a-zA-Z_][a-zA-Z_0-9\\-]*)"
-        fullinstancename_re = "(\\{.*\\})?"
+        fullinstancename_re = "\\{(.*)\\}"
         countername_re = "/([a-zA-Z_0-9\\-/]+)"
         parameters_re = "@?([a-zA-Z_0-9\\-]+)?"
         regex = '"?' + objectname_re + fullinstancename_re + countername_re + parameters_re + '"?'

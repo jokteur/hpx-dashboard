@@ -25,7 +25,7 @@ class DataAggregator(metaclass=Singleton):
         self.data = []
         self.current_run = None
         self.last_run = None
-        self.current_data = None
+        self.current_data: Union[DataCollection, None] = None
         self.dummy_counter = 0
 
     def new_collection(self, begin_time: float) -> None:

@@ -12,6 +12,10 @@
 
 from typing import Union
 
+from ..common.logger import Logger
+
+logger = Logger()
+
 
 class DataCollection:
     """The data collection class provides an interface for storing and reading hpx performance data.
@@ -22,10 +26,12 @@ class DataCollection:
         self.data = {}
         self.instances = {}
 
-    def _get_instance_infos(self, full_instance: str) -> None:
+    def get_instance_infos(full_instance: str) -> None:
         """"""
-        instance_split = full_instance.split("/")
+        if full_instance.startswith("/"):
+            return None, None, None, None
 
+        instance_split = full_instance.split("/")
         locality_id = instance_split[0].split("#")[1]
         thread_id = None
         pool = None
@@ -39,19 +45,26 @@ class DataCollection:
                 thread_id = instance_split[1].split("#")[1]
             else:
                 pool = instance_split[1].split("#")[1]
-                thread_id = instance_split[2].split("#")[2]
+                thread_id = instance_split[2].split("#")[1]
 
-        return locality_id, thread_id, pool, is_total
+        return locality_id, pool, thread_id, is_total
+
+    def instance_infos_to_str(locality_id, pool=None, thread_id=None, is_total=True):
+        """"""
+        return f"{locality_id};{pool};{thread_id};{is_total}"
 
     def _add_instance_name(
-        self, locality_id, thread_id=None, pool="default", is_total=True
+        self, locality_id, pool="default", thread_id=None, is_total=True
     ) -> None:
         """Adds the instance name to the list of instance names stored in the class."""
+        if not locality_id:
+            return
+
         if locality_id not in self.instances:
             self.instances[locality_id] = {}
 
         if is_total and "total" not in self.instances[locality_id]:
-            self.instance[locality_id]["total"] = None
+            self.instances[locality_id]["total"] = None
             return
 
         if pool not in self.instances[locality_id]:
@@ -101,35 +114,32 @@ class DataCollection:
         if name not in self.data:
             self.data[name] = {}
 
-        line = [full_instance, sequence_number, timestamp, timestamp_unit, value, value_unit]
-        if full_instance not in self.data[name]:
-            self.data[name][full_instance] = [line]
-        else:
-            self.data[name][full_instance].append(line)
+        locality_id, pool, thread_id, is_total = DataCollection.get_instance_infos(full_instance)
+        self._add_instance_name(locality_id, pool, thread_id, is_total)
 
-        if not full_instance.startswith("/") and "locality" in full_instance:
-            self._add_instance_name(full_instance)
+        instance_name = full_instance
+        if locality_id:
+            instance_name = DataCollection.instance_infos_to_str(
+                locality_id, pool, thread_id, is_total
+            )
+
+        line = [instance_name, sequence_number, timestamp, timestamp_unit, value, value_unit]
+        if instance_name not in self.data[name]:
+            self.data[name][instance_name] = [line]
+        else:
+            self.data[name][instance_name].append(line)
 
     def get_counter_names(self):
         """"""
         return list(self.data.keys())
 
-    def get_data(self, fullname: str, full_instance="*"):
+    def get_data(self, fullname: str, instance_name: str, index=0):
         """"""
-
         if fullname not in self.data:
             return None
 
-        # Wildcard `*` has been used
-        result = []
-        if "*" in full_instance:
-            for key in self.data[fullname].keys():
-                if full_instance.split("*")[0] in key:
-                    result += self.data[fullname][key]
-        else:
-            if full_instance in self.data[fullname]:
-                result = self.data[fullname][full_instance]
-            else:
-                result = None
+        if instance_name in self.data[fullname]:
+            if index >= len(self.data[fullname][instance_name]):
+                return []
 
-        return result
+            return self.data[fullname][instance_name][index:]

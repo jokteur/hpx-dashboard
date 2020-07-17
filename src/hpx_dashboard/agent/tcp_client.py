@@ -55,8 +55,13 @@ async def send_data(host, port, timeout, queue, stop_signal):
         if line is None:
             break
 
-        writer.write(line + message_separator)
-        await writer.drain()
+        try:
+            writer.write(line + message_separator)
+            await writer.drain()
+        except ConnectionResetError:
+            logger.error("Connection was reset while streaming data.")
+            break
+
         queue.task_done()
 
     return
