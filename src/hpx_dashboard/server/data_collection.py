@@ -12,9 +12,45 @@
 
 from typing import Union
 
+import numpy as np
+
 from ..common.logger import Logger
 
 logger = Logger()
+
+
+class _NumpyArrayList:
+    """This class allows for the growing of a numpy array of unknown size.
+
+    Using np.append() for each DataCollection.add_line would be a waste ressources.
+    This class is a wrapper around numpy arrays to allow for efficiently allocate and
+    grow 2D numpy arrays.
+    """
+
+    def __init__(self, size_x, dtype):
+        self.data = np.empty((100, size_x), dtype=dtype)
+        self.capacity = 100
+        self.size = 0
+        self.size_x = size_x
+        self.dtype = dtype
+
+    def append(self, row):
+        if self.size == self.capacity:
+            self.capacity *= 2
+            new_data = np.empty((self.capacity, self.size_x))
+            new_data[: self.size] = self.data
+            self.data = new_data
+
+        self.data[self.size] = np.array(row, dtype=self.dtype)
+        self.size += 1
+
+
+def format_instance(locality_id, pool="default", thread_id=None, is_total=True):
+    """"""
+    if is_total:
+        return str(locality_id)
+    else:
+        return (str(locality_id), str(pool), str(thread_id))
 
 
 class DataCollection:
@@ -26,7 +62,27 @@ class DataCollection:
         self.data = {}
         self.instances = {}
 
-    def get_instance_infos(full_instance: str) -> None:
+    def _add_instance_name(
+        self, locality_id, pool="default", thread_id=None, is_total=True
+    ) -> None:
+        """Adds the instance name to the list of instance names stored in the class."""
+        if not locality_id:
+            return
+
+        if locality_id not in self.instances:
+            self.instances[locality_id] = {}
+
+        if is_total and "total" not in self.instances[locality_id]:
+            self.instances[locality_id]["total"] = None
+            return
+
+        if pool not in self.instances[locality_id]:
+            self.instances[locality_id][pool] = {}
+
+        if thread_id not in self.instances[locality_id][pool]:
+            self.instances[locality_id][pool][thread_id] = None
+
+    def _get_instance_infos(self, full_instance: str) -> None:
         """"""
         if full_instance.startswith("/"):
             return None, None, None, None
@@ -48,30 +104,6 @@ class DataCollection:
                 thread_id = instance_split[2].split("#")[1]
 
         return locality_id, pool, thread_id, is_total
-
-    def instance_infos_to_str(locality_id, pool=None, thread_id=None, is_total=True):
-        """"""
-        return f"{locality_id};{pool};{thread_id};{is_total}"
-
-    def _add_instance_name(
-        self, locality_id, pool="default", thread_id=None, is_total=True
-    ) -> None:
-        """Adds the instance name to the list of instance names stored in the class."""
-        if not locality_id:
-            return
-
-        if locality_id not in self.instances:
-            self.instances[locality_id] = {}
-
-        if is_total and "total" not in self.instances[locality_id]:
-            self.instances[locality_id]["total"] = None
-            return
-
-        if pool not in self.instances[locality_id]:
-            self.instances[locality_id][pool] = {}
-
-        if thread_id not in self.instances[locality_id][pool]:
-            self.instances[locality_id][pool][thread_id] = None
 
     def add_line(
         self,
@@ -114,32 +146,32 @@ class DataCollection:
         if name not in self.data:
             self.data[name] = {}
 
-        locality_id, pool, thread_id, is_total = DataCollection.get_instance_infos(full_instance)
-        self._add_instance_name(locality_id, pool, thread_id, is_total)
+        locality_id, pool, thread_id, is_total = self._get_instance_infos(full_instance)
 
         instance_name = full_instance
         if locality_id:
-            instance_name = DataCollection.instance_infos_to_str(
-                locality_id, pool, thread_id, is_total
-            )
+            self._add_instance_name(locality_id, pool, thread_id, is_total)
+            instance_name = format_instance(locality_id, pool, thread_id, is_total)
 
         line = [instance_name, sequence_number, timestamp, timestamp_unit, value, value_unit]
         if instance_name not in self.data[name]:
-            self.data[name][instance_name] = [line]
-        else:
-            self.data[name][instance_name].append(line)
+            self.data[name][instance_name] = []
 
-    def get_counter_names(self):
-        """"""
-        return list(self.data.keys())
+        self.data[name][instance_name].append(line)
 
-    def get_data(self, fullname: str, instance_name: str, index=0):
+    def get_data(self, fullname: str, instance_name: tuple, index=0):
         """"""
         if fullname not in self.data:
-            return None
+            return np.array([])
 
         if instance_name in self.data[fullname]:
             if index >= len(self.data[fullname][instance_name]):
-                return []
+                return np.array([])
 
-            return self.data[fullname][instance_name][index:]
+            return np.array(self.data[fullname][instance_name][index:])
+        else:
+            return np.array([])
+
+    def get_counter_names(self):
+        """Returns the list of available counters that are currently in the collection."""
+        return list(self.data.keys())
