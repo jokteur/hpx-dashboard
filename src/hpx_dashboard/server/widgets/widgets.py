@@ -17,7 +17,7 @@ from bokeh.models.widgets import AutocompleteInput, Select, Div, Button
 import panel as pn
 
 from ..data import DataAggregator, format_instance
-from ..plot import PlotGenerator
+from ..plots import PlotGenerator
 
 
 def empty_placeholder():
