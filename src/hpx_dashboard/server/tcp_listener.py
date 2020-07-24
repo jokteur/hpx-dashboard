@@ -16,7 +16,7 @@ import traceback
 from tornado.tcpserver import TCPServer
 from tornado.iostream import StreamClosedError
 
-from .data_aggregator import DataAggregator
+from .data import DataAggregator
 from ..common.constants import message_separator
 from ..common.logger import Logger
 

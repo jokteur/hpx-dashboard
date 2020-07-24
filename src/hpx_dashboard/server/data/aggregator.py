@@ -12,8 +12,8 @@
 
 from typing import Union
 
-from ..common.singleton import Singleton
-from .data_collection import DataCollection
+from ...common.singleton import Singleton
+from .collection import DataCollection
 
 
 class DataAggregator(metaclass=Singleton):
@@ -27,26 +27,6 @@ class DataAggregator(metaclass=Singleton):
         self.last_run = None
         self.current_data: Union[DataCollection, None] = None
         self.dummy_counter = 0
-
-    def new_collection(self, begin_time: float) -> None:
-        """Adds a new DataCollection along with a timestamp to the aggregator.
-
-        Parameters
-        ----------
-        begin_time
-            time of the beginning of the collection
-            (should be sent by the hpx-dashboard agent)
-        """
-        self.data.append(
-            {
-                "begin-time": begin_time,
-                "end-time": None,
-                "data": DataCollection(),
-                "counter-info": None,
-            }
-        )
-        self.current_run = len(self.data) - 1
-        self.current_data = self.data[self.current_run]
 
     def set_counter_infos(self, counter_infos: dict):
         """Sets the counter informations of the current collection.
@@ -70,6 +50,10 @@ class DataAggregator(metaclass=Singleton):
         else:
             return None
 
+    def get_all_runs(self):
+        """Returns all current and past data collection runs"""
+        return self.data
+
     def finalize_current_collection(self, end_time: float) -> None:
         """Finalizes the current collection of data
 
@@ -81,3 +65,23 @@ class DataAggregator(metaclass=Singleton):
         self.last_run = self.current_run
         self.current_data = None
         self.current_run = None
+
+    def new_collection(self, begin_time: float) -> None:
+        """Adds a new DataCollection along with a timestamp to the aggregator.
+
+        Parameters
+        ----------
+        begin_time
+            time of the beginning of the collection
+            (should be sent by the hpx-dashboard agent)
+        """
+        self.data.append(
+            {
+                "begin-time": begin_time,
+                "end-time": None,
+                "data": DataCollection(),
+                "counter-info": None,
+            }
+        )
+        self.current_run = len(self.data) - 1
+        self.current_data = self.data[self.current_run]

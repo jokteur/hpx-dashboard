@@ -14,7 +14,7 @@ from typing import Union
 
 import numpy as np
 
-from ..common.logger import Logger
+from ...common.logger import Logger
 
 logger = Logger()
 
@@ -159,6 +159,10 @@ class DataCollection:
 
         self.data[name][instance_name].append(line)
 
+    def get_counter_names(self):
+        """Returns the list of available counters that are currently in the collection."""
+        return list(self.data.keys())
+
     def get_data(self, fullname: str, instance_name: tuple, index=0):
         """"""
         if fullname not in self.data:
@@ -172,6 +176,16 @@ class DataCollection:
         else:
             return np.array([])
 
-    def get_counter_names(self):
-        """Returns the list of available counters that are currently in the collection."""
-        return list(self.data.keys())
+    def get_localities(self):
+        """Returns the list of available localities that are currently in the collection"""
+        return list(self.instances.keys())
+
+    def get_pools(self, locality):
+        """Returns the list of available pools in a particular locality. The `total` is also
+        counted as a pool.
+        """
+        return list(self.instances[locality].keys())
+
+    def get_worker_threads(self, locality, pool):
+        """Returns the list of worker threads in a particular locality and pool"""
+        return list(self.instances[locality][pool].keys())
