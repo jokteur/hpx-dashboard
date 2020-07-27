@@ -46,7 +46,7 @@ counter_types = [
     "/threads/time/cumulative",
     "/threads/time/cumulative-overheads",
     "/threads/count/instantaneous/<thread-state>",
-    "threads/wait-time/<thread-state2>",
+    "/threads/wait-time/<thread-state2>",
     "/threads/idle-rate",
     "/threads/creation-idle-rate",
     "/threads/cleanup-idle-rate",

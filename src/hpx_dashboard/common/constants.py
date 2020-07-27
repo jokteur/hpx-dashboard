@@ -162,6 +162,6 @@ counternames = [
     "/threads/time/cumulative",
     "/threads/time/cumulative-overheads",
     "/threads/time/overall",
-    "threads/wait-time/pending",
-    "threads/wait-time/staged",
+    "/threads/wait-time/pending",
+    "/threads/wait-time/staged",
 ]
