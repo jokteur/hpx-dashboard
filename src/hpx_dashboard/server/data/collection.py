@@ -70,7 +70,7 @@ class DataCollection:
             return
 
         if locality_id not in self.instances:
-            self.instances[locality_id] = {}
+            self.instances[str(locality_id)] = {}
 
         if is_total and "total" not in self.instances[locality_id]:
             self.instances[locality_id]["total"] = None
@@ -184,7 +184,25 @@ class DataCollection:
         """Returns the list of available pools in a particular locality. The `total` is also
         counted as a pool.
         """
-        return list(self.instances[locality].keys())
+        if locality in self.instances:
+            pools = []
+            for pool in self.instances[locality].keys():
+                if pool != "total" and pool:
+                    pools.append(pool)
+            return pools
+        else:
+            return []
+
+    def get_num_worker_threads(self, locality):
+        """Returns the number of worker threads in a particular locality"""
+        num = 0
+        if locality in self.instances:
+            for pool in self.instances[locality].keys():
+                if pool != "total" and pool:
+                    for _ in self.instances[locality][pool].keys():
+                        num += 1
+
+        return num
 
     def get_worker_threads(self, locality, pool):
         """Returns the list of worker threads in a particular locality and pool"""

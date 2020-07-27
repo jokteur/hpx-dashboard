@@ -56,7 +56,7 @@ class Memory(BasePlot):
     ):
         """"""
         super().__init__(doc, title)
-        self.plot = figure(
+        self.layout = figure(
             title=title,
             width=980,
             height=300,
@@ -68,6 +68,6 @@ class Memory(BasePlot):
 
         data = data_sources.get_data(counter_name, "0")
 
-        self.plot.line(
+        self.layout.line(
             x=data["x_name"], y=data["y_name"], source=data["data_source"],
         )

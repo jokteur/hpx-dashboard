@@ -29,7 +29,7 @@ class BasePlot(metaclass=ABCMeta):
 
     def __init__(self, doc, title, refresh_rate=500):
         """"""
-        self.plot = None
+        self.layout = None
         self.title = title
         self.buffer = None
         self.refresh_rate = refresh_rate
@@ -44,5 +44,5 @@ class BasePlot(metaclass=ABCMeta):
     def update(self):
         pass
 
-    def get_plot(self):
-        return self.plot
+    def plot(self):
+        return self.layout

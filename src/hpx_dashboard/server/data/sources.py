@@ -33,6 +33,7 @@ class DataSources(metaclass=Singleton):
         self._last_run = -1
         self._data = {}
         self._periodic_callback = None
+        self._current_collection = None
 
     def _get_from_collection(self, collection: DataCollection, identifier: tuple):
         """"""
@@ -41,7 +42,8 @@ class DataSources(metaclass=Singleton):
             f"{identifier}": [],
         }
         if collection:
-            data = collection["data"].get_data(*identifier, self._data[identifier]["last_index"])
+
+            data = collection.get_data(*identifier, self._data[identifier]["last_index"])
 
             if data.ndim == 2:
                 self._data[identifier]["last_index"] = int(data[-1, 1])
@@ -62,10 +64,18 @@ class DataSources(metaclass=Singleton):
             if reset:
                 data["data_source"].data = self._get_from_collection(None, identifier)
                 data["last_index"] = 0
+                data["last_time"] = 0
             if DataAggregator().current_data:
-                data["data_source"].stream(
-                    self._get_from_collection(DataAggregator().current_data, identifier)
+                new_data = self._get_from_collection(
+                    DataAggregator().current_data["data"], identifier
                 )
+                data_len = len(new_data[f"{identifier}"])
+                if data_len > 0:
+                    data["data_source"].stream(new_data)
+                    data["last_time"] = new_data[f"{identifier}_time"][-1]
+
+    def get_instances_list(self):
+        """"""
 
     def get_data(
         self, counter_name: str, instance_id: tuple, only_live_collection=False, collection=None
@@ -85,6 +95,7 @@ class DataSources(metaclass=Singleton):
 
             self._data[identifier] = {
                 "last_index": 0,
+                "last_time": 0,
                 "x_name": f"{identifier}_time",
                 "y_name": f"{identifier}",
             }

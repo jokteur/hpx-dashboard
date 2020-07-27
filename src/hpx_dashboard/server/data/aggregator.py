@@ -46,13 +46,22 @@ class DataAggregator(metaclass=Singleton):
         If there was no active collection, None is returned.
         """
         if self.last_run is not None:
-            return self.data[self.last_run]
+            return self.data[self.last_run]["data"]
         else:
             return None
 
     def get_all_runs(self):
         """Returns all current and past data collection runs"""
         return self.data
+
+    def get_current_run(self):
+        """Returns the current active collection.
+        If there is no collection going on, then None is returned.
+        """
+        if self.current_data:
+            return self.current_data["data"]
+        else:
+            return None
 
     def finalize_current_collection(self, end_time: float) -> None:
         """Finalizes the current collection of data
