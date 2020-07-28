@@ -26,7 +26,7 @@ class DataSources(metaclass=Singleton):
     The user can call the get_data() method to get a ColumnDataSource instance of the desired
     performance counter and counter instance."""
 
-    def __init__(self, refresh_rate=100):
+    def __init__(self, refresh_rate=200):
         """"""
         self._refresh_rate = refresh_rate
         self._is_updating = {}
@@ -42,8 +42,10 @@ class DataSources(metaclass=Singleton):
             f"{identifier}": [],
         }
         if collection:
-
-            data = collection.get_data(*identifier, self._data[doc][identifier]["last_index"])
+            countername, instance = identifier[0], identifier[1]
+            data = collection.get_data(
+                countername, instance, self._data[doc][identifier]["last_index"]
+            )
 
             if data.ndim == 2:
                 self._data[doc][identifier]["last_index"] = int(data[-1, 1])
@@ -65,28 +67,30 @@ class DataSources(metaclass=Singleton):
                 data["data_source"].data = self._get_from_collection(doc, None, identifier)
                 data["last_index"] = 0
                 data["last_time"] = 0
-            if DataAggregator().current_data:
+
+            new_data = {f"{identifier}": []}
+            if DataAggregator().get_current_run():
                 new_data = self._get_from_collection(
-                    doc, DataAggregator().current_data["data"], identifier
+                    doc, DataAggregator().get_current_run(), identifier
                 )
-                data_len = len(new_data[f"{identifier}"])
-                if data_len > 0:
-                    data["data_source"].stream(new_data)
-                    data["last_time"] = new_data[f"{identifier}_time"][-1]
+            elif DataAggregator().get_last_run():
+                new_data = self._get_from_collection(
+                    doc, DataAggregator().get_last_run(), identifier
+                )
+
+            data_len = len(new_data[f"{identifier}"])
+            if data_len > 0:
+                data["data_source"].stream(new_data)
+                data["last_time"] = new_data[f"{identifier}_time"][-1]
 
     def get_data(
-        self,
-        doc,
-        counter_name: str,
-        instance_id: tuple,
-        only_live_collection=False,
-        collection=None,
+        self, doc, countername: str, instance: tuple, only_live_collection=False, collection=None,
     ):
         """"""
         # Start auto-update if it is not already the case
         # self.start_update()
 
-        identifier = (counter_name, instance_id)
+        identifier = (countername, instance, collection)
 
         if doc not in self._data:
             self._data[doc] = {}

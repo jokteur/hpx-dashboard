@@ -153,7 +153,12 @@ class DataCollection:
             self._add_instance_name(locality_id, pool, thread_id, is_total)
             instance_name = format_instance(locality_id, pool, thread_id, is_total)
 
-        line = [instance_name, sequence_number, timestamp, timestamp_unit, value, value_unit]
+        try:
+            value = float(value)
+        except ValueError:
+            value = str(value)
+
+        line = [instance_name, int(sequence_number), timestamp, timestamp_unit, value, value_unit]
         if instance_name not in self.data[name]:
             self.data[name][instance_name] = []
 

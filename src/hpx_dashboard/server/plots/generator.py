@@ -121,7 +121,7 @@ class TimeSeries(BasePlot):
             instances.append(("total", format_instance(self._locality_id)))
 
         _figure = figure(
-            plot_height=150,
+            plot_height=300,
             tools="xpan",
             x_range=self._x_range,
             toolbar_location=None,
