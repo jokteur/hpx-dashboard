@@ -13,7 +13,7 @@
 from bokeh.plotting import figure
 from bokeh.models import RangeTool
 from bokeh.models.ranges import Range1d
-from bokeh.layouts import column, layout
+from bokeh.layouts import column
 from bokeh.models.widgets import Div
 
 from ..data import DataSources, format_instance, DataAggregator
@@ -33,7 +33,6 @@ class PlotGenerator(BasePlot):
     def add_plot(self, collection, counter_name, instance):
         """"""
         data = DataSources().get_data(counter_name, instance, collection=collection)
-        DataSources().start_update(self.doc)
 
         self.plot.line(
             x=data["x_name"],
@@ -121,26 +120,19 @@ class TimeSeries(BasePlot):
         else:
             instances.append(("total", format_instance(self._locality_id)))
 
+        _figure = figure(
+            plot_height=150,
+            tools="xpan",
+            x_range=self._x_range,
+            toolbar_location=None,
+            x_axis_label="Time (s)",
+            **self._kwargs,
+        )
         self._figures = []
         for i, (name, instance) in enumerate(instances):
-            x_axis_type = None
-            x_axis_location = "above"
-            if i == 0:
-                x_axis_type = "linear"
-            if i == len(instances) - 1:
-                x_axis_location = "below"
-                x_axis_type = "linear"
-
-            _figure = figure(
-                plot_height=150,
-                tools="xpan",
-                x_range=self._x_range,
-                toolbar_location=None,
-                x_axis_location=x_axis_location,
-                x_axis_type=x_axis_type,
-                **self._kwargs,
+            data = DataSources().get_data(
+                self.doc, self._countername, instance, collection=self._collection
             )
-            data = DataSources().get_data(self._countername, instance, collection=self._collection)
             self._data_sources.append(data)
             _figure.line(
                 x=data["x_name"],
@@ -149,15 +141,14 @@ class TimeSeries(BasePlot):
                 color=default_colors[i % 6],
                 legend_label=name,
             )
-            self._figures.append([_figure])
 
         self._select = figure(
             title="Drag the middle and edges of the selection box to change the range above",
             plot_height=130,
-            y_range=self._figures[0][0].y_range,
             tools="",
             toolbar_location=None,
             x_axis_label="Time (s)",
+            x_axis_location="above",
             y_axis_type=None,
             y_axis_label="Total",
             background_fill_color="#efefef",
@@ -169,7 +160,7 @@ class TimeSeries(BasePlot):
         range_tool.overlay.fill_alpha = 0.2
 
         select_ds = DataSources().get_data(
-            self._countername, format_instance(0), collection=self._collection
+            self.doc, self._countername, format_instance(0), collection=self._collection
         )
         self._select.line(
             x=select_ds["x_name"],
@@ -181,5 +172,4 @@ class TimeSeries(BasePlot):
         self._select.add_tools(range_tool)
         self._select.toolbar.active_multi = range_tool
 
-        self.layout.children[0] = column(layout(self._figures), self._select)
-        print(self.layout)
+        self.layout.children[0] = column(self._select, _figure)

@@ -47,8 +47,6 @@ class ThreadsPlot(BasePlot):
                 source=data["data_source"],
             )
 
-        data_sources.start_update(self.doc)
-
 
 class Memory(BasePlot):
     def __init__(
