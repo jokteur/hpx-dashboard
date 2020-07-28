@@ -11,12 +11,13 @@
 """
 
 from bokeh.plotting import figure
-from bokeh.models import RangeTool
+from bokeh.models import RangeTool, Toggle
 from bokeh.models.ranges import Range1d
 from bokeh.layouts import column
 from bokeh.models.widgets import Div
 
 from ..data import DataSources, format_instance, DataAggregator
+from ..widgets import empty_placeholder
 from .base_plot import BasePlot, default_colors
 
 
@@ -52,9 +53,9 @@ class TimeSeries(BasePlot):
         countername,
         title,
         locality_id="0",
-        x_range=(0, 10),
+        window_size=10,
         plot_all_workers=True,
-        refresh_rate=500,
+        refresh_rate=200,
         **kwargs,
     ):
         """"""
@@ -67,9 +68,12 @@ class TimeSeries(BasePlot):
         self._locality_id = locality_id
         self._plot_all_workers = plot_all_workers
         self._num_plots = 0
-        self._x_range = Range1d(*x_range, bounds=(0, None))
+        self._x_range = Range1d(0, window_size, bounds=(0, None))
+        self._window_size = window_size
+        self._update_range = True
 
         self._figures = []
+        self._toggle = None
         self._data_sources = []
         self.layout = column(Div(text=" "))
 
@@ -95,16 +99,47 @@ class TimeSeries(BasePlot):
                 self._make_plots("0")
                 self._num_plots = num_plots
 
-    def update(self):
+    def _set_x_range(self, init=False):
         """"""
-        self._set_data()
         last_time = self._data_sources[0]["last_time"]
         if last_time > 0 and self._x_range.bounds != last_time:
             self._x_range.bounds = (0, last_time)
 
+        if self._update_range or init:
+            self._x_range.start = max(0, last_time - self._window_size)
+            self._x_range.end = last_time
+
+    def _build_range_button(self, show=False):
+        """"""
+        if not self._toggle:
+            # Toggle follow for the range_tool
+            self._toggle = Toggle(label="Follow", active=self._update_range, width=100)
+            self._toggle.on_click(self._toggle_follow)
+
+        if show:
+            if not isinstance(self.layout.children[0].children[0], Toggle):
+                self.layout.children[0].children[0] = self._toggle
+        else:
+            if isinstance(self.layout.children[0].children[0], Toggle):
+                self.layout.children[0].children[0] = empty_placeholder()
+
+    def update(self):
+        """"""
+        self._set_data()
+        if DataAggregator().get_current_run():
+            self._set_x_range()
+            self._build_range_button(True)
+        else:
+            self._build_range_button()
+
+    def _toggle_follow(self, event):
+        self._update_range = event
+
     def _make_plots(self, instance):
         """"""
         instances = []
+
+        # List all the line that we need to plot
         if self._collection:
             if self._plot_all_workers:
                 for pool in self._collection.get_pools(self._locality_id):
@@ -120,8 +155,9 @@ class TimeSeries(BasePlot):
         else:
             instances.append(("total", format_instance(self._locality_id)))
 
+        # Create the main figure
         _figure = figure(
-            plot_height=300,
+            plot_height=500,
             tools="xpan",
             x_range=self._x_range,
             toolbar_location=None,
@@ -142,6 +178,7 @@ class TimeSeries(BasePlot):
                 legend_label=name,
             )
 
+        # Create the selection figure
         self._select = figure(
             title="Drag the middle and edges of the selection box to change the range above",
             plot_height=130,
@@ -171,5 +208,7 @@ class TimeSeries(BasePlot):
         self._select.ygrid.grid_line_color = None
         self._select.add_tools(range_tool)
         self._select.toolbar.active_multi = range_tool
+        self._set_x_range(True)
 
-        self.layout.children[0] = column(self._select, _figure)
+        # Layout of the plot
+        self.layout.children[0] = column(empty_placeholder(), self._select, _figure)

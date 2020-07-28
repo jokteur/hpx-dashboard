@@ -17,7 +17,8 @@ from bokeh.models.widgets import AutocompleteInput, Select, Div, Button
 import panel as pn
 
 from ..data import DataAggregator, format_instance
-from ..plots import PlotGenerator
+
+# from ..plots import PlotGenerator
 
 
 def empty_placeholder():
@@ -427,7 +428,7 @@ class PlotGeneratorWidget(BaseWidget):
         """
         super().__init__(doc, callback, refresh_rate=refresh_rate)
 
-        self.plot = PlotGenerator(doc, "Line plot", width=980, height=500)
+        # self.plot = PlotGenerator(doc, "Line plot", width=980, height=500)
 
         self.add_button = Button("Add counter")
         self.ok_button = Button("Ok")

@@ -84,7 +84,7 @@ class DataSources(metaclass=Singleton):
                 data["last_time"] = new_data[f"{identifier}_time"][-1]
 
     def get_data(
-        self, doc, countername: str, instance: tuple, only_live_collection=False, collection=None,
+        self, doc, countername: str, instance: tuple, collection=None,
     ):
         """"""
         # Start auto-update if it is not already the case
@@ -99,9 +99,9 @@ class DataSources(metaclass=Singleton):
         # Build the data source from scratch if it does not exists
         if identifier not in self._data[doc]:
             if not collection:
-                if DataAggregator().current_data:
-                    collection = DataAggregator().current_data
-                elif DataAggregator().get_last_run() and not only_live_collection:
+                if DataAggregator().get_current_run():
+                    collection = DataAggregator().get_current_run()
+                elif DataAggregator().get_last_run():
                     collection = DataAggregator().get_last_run()
 
             self._data[doc][identifier] = {
