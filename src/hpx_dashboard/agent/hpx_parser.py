@@ -166,6 +166,22 @@ class HPXParser:
         # as part of hpx output
         if self.collect_counter_infos and not self.is_counter_descriptions_complete:
             return True
+
+        # Collect task counter infos
+        split = line.split(",")
+        if len(split) == 10 and split[0] == "locality":
+            data = (
+                "task-data",
+                [
+                    split[1],  # Locality num
+                    split[3],  # Worker-thread num
+                    split[5],  # Task name
+                    split[7],  # Begin time
+                    split[9],  # End time
+                ],
+            )
+            self._add_to_buffer(data)
+            return True
         else:
             return False
 

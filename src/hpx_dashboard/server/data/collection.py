@@ -60,7 +60,8 @@ class DataCollection:
 
     def __init__(self):
         self.data = {}
-        self.instances = {}
+        # Contains also the task data
+        self.task_data = {}
 
     def _add_instance_name(
         self, locality_id, pool="default", thread_id=None, is_total=True
@@ -69,18 +70,18 @@ class DataCollection:
         if not locality_id:
             return
 
-        if locality_id not in self.instances:
-            self.instances[str(locality_id)] = {}
+        if locality_id not in self.task_data:
+            self.task_data[str(locality_id)] = {}
 
-        if is_total and "total" not in self.instances[locality_id]:
-            self.instances[locality_id]["total"] = None
+        if is_total and "total" not in self.task_data[locality_id]:
+            self.task_data[locality_id]["total"] = None
             return
 
-        if pool not in self.instances[locality_id]:
-            self.instances[locality_id][pool] = {}
+        if pool not in self.task_data[locality_id]:
+            self.task_data[locality_id][pool] = {}
 
-        if thread_id not in self.instances[locality_id][pool]:
-            self.instances[locality_id][pool][thread_id] = None
+        if thread_id not in self.task_data[locality_id][pool]:
+            self.task_data[locality_id][pool][thread_id] = []
 
     def _get_instance_infos(self, full_instance: str) -> None:
         """"""
@@ -104,6 +105,11 @@ class DataCollection:
                 thread_id = instance_split[2].split("#")[1]
 
         return locality_id, pool, thread_id, is_total
+
+    def add_task_data(self, locality, thread, name, begin, end):
+        """"""
+        self._add_instance_name(locality, thread_id=thread, is_total=False)
+        self.task_data[locality]["default"][thread].append([name, begin, end])
 
     def add_line(
         self,
@@ -168,6 +174,22 @@ class DataCollection:
         """Returns the list of available counters that are currently in the collection."""
         return list(self.data.keys())
 
+    def get_task_data(self, locality, worker, index=0):
+        """"""
+        if locality not in self.task_data:
+            return np.array([])
+
+        if "default" not in self.task_data[locality]:
+            return np.array([])
+
+        if worker not in self.task_data[locality]["default"]:
+            return np.array([])
+
+        if index >= len(self.task_data[locality]["default"][worker]):
+            return np.array([])
+        else:
+            return np.array(self.task_data[locality]["default"][worker])
+
     def get_data(self, fullname: str, instance_name: tuple, index=0):
         """"""
         if fullname not in self.data:
@@ -183,15 +205,15 @@ class DataCollection:
 
     def get_localities(self):
         """Returns the list of available localities that are currently in the collection"""
-        return list(self.instances.keys())
+        return list(self.task_data.keys())
 
     def get_pools(self, locality):
         """Returns the list of available pools in a particular locality. The `total` is also
         counted as a pool.
         """
-        if locality in self.instances:
+        if locality in self.task_data:
             pools = []
-            for pool in self.instances[locality].keys():
+            for pool in self.task_data[locality].keys():
                 if pool != "total" and pool:
                     pools.append(pool)
             return pools
@@ -201,14 +223,14 @@ class DataCollection:
     def get_num_worker_threads(self, locality):
         """Returns the number of worker threads in a particular locality"""
         num = 0
-        if locality in self.instances:
-            for pool in self.instances[locality].keys():
+        if locality in self.task_data:
+            for pool in self.task_data[locality].keys():
                 if pool != "total" and pool:
-                    for _ in self.instances[locality][pool].keys():
+                    for _ in self.task_data[locality][pool].keys():
                         num += 1
 
         return num
 
     def get_worker_threads(self, locality, pool):
         """Returns the list of worker threads in a particular locality and pool"""
-        return list(self.instances[locality][pool].keys())
+        return list(self.task_data[locality][pool].keys())

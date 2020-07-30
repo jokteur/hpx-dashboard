@@ -53,6 +53,8 @@ class TCP_Server(TCPServer):
                             data_aggregator.dummy_counter += 1
                         elif response_type == "line":
                             logger.info(sub_data)
+                        elif response_type == "task-data":
+                            data_aggregator.current_data["data"].add_task_data(*sub_data)
 
                 elif response_type == "transmission_begin":
                     logger.info("BEGIN")
