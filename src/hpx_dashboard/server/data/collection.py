@@ -109,7 +109,7 @@ class DataCollection:
     def add_task_data(self, locality, thread, name, begin, end):
         """"""
         self._add_instance_name(locality, thread_id=thread, is_total=False)
-        self.task_data[locality]["default"][thread].append([name, begin, end])
+        self.task_data[locality]["default"][thread].append([name, float(begin), float(end)])
 
     def add_line(
         self,
@@ -188,7 +188,7 @@ class DataCollection:
         if index >= len(self.task_data[locality]["default"][worker]):
             return np.array([])
         else:
-            return np.array(self.task_data[locality]["default"][worker])
+            return np.array(self.task_data[locality]["default"][worker][index:])
 
     def get_data(self, fullname: str, instance_name: tuple, index=0):
         """"""
@@ -233,4 +233,8 @@ class DataCollection:
 
     def get_worker_threads(self, locality, pool):
         """Returns the list of worker threads in a particular locality and pool"""
-        return list(self.task_data[locality][pool].keys())
+        if locality in self.task_data:
+            if pool in self.task_data[locality]:
+                return list(self.task_data[locality][pool].keys())
+
+        return []

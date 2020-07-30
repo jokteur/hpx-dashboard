@@ -12,12 +12,12 @@
 
 from bokeh.layouts import column
 
-from .plots import TimeSeries
+from .plots import TasksPlot
 
 
 def app(doc):
     # threads_count = Threads2(doc)
-    plot = TimeSeries(doc, "threads/count/instantaneous/all", "Total thread count", plot_width=800)
+    plot = TasksPlot(doc, "Task plot")
 
     # put the button and plot in a layout and add to the document
     p = plot.plot()

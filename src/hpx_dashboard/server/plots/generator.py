@@ -18,7 +18,7 @@ from bokeh.models.widgets import Div
 
 from ..data import DataSources, format_instance, DataAggregator
 from ..widgets import empty_placeholder
-from .base_plot import BasePlot, default_colors
+from .base import BasePlot, default_colors
 
 
 class PlotGenerator(BasePlot):

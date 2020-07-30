@@ -1,6 +1,6 @@
 from bokeh.plotting import figure
 
-from .base_plot import BasePlot
+from .base import BasePlot
 from ..data import DataSources, DataAggregator, format_instance
 
 data_aggregator = DataAggregator()

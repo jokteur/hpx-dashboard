@@ -13,5 +13,6 @@
 
 from .generator import PlotGenerator, TimeSeries
 from .threads import Memory, ThreadsPlot
+from .tasks import TasksPlot
 
-__all__ = ["PlotGenerator", "Memory", "ThreadsPlot", "TimeSeries"]
+__all__ = ["PlotGenerator", "Memory", "ThreadsPlot", "TimeSeries", "TasksPlot"]
