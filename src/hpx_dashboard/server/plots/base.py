@@ -11,8 +11,11 @@
 """
 
 from abc import ABCMeta
+import random
+from itertools import cycle
 
 from bokeh.plotting import Figure
+from bokeh import palettes
 
 default_colors = [
     "#a6cee3",
@@ -33,27 +36,23 @@ def get_figure_options():
     return o
 
 
-def get_colors(palette, funcs):
+def get_colors(palette, names, shuffle=True):
     """"""
-    from bokeh import palettes
-    from bisect import bisect_left
-    import random
-    from itertools import cycle
-
-    unique_funcs = list(sorted(set(funcs)))
-
-    n_funcs = len(unique_funcs)
     palette_lookup = palettes.all_palettes[palette]
-    keys = list(sorted(palette_lookup.keys()))
-    index = keys[min(bisect_left(keys, n_funcs), len(keys) - 1)]
-    palette = palette_lookup[index]
+
+    # Take the biggest palette available
+    max_key = max(list(sorted(palette_lookup.keys())))
+    palette = palette_lookup[max_key]
+
     # Some bokeh palettes repeat colors, we want just the unique set
     palette = list(set(palette))
-    if len(palette) > n_funcs:
+
+    if shuffle:
         # Consistently shuffle palette - prevents just using low-range
         random.Random(42).shuffle(palette)
-    color_lookup = dict(zip(unique_funcs, cycle(palette)))
-    return [color_lookup[n] for n in funcs]
+
+    # Quick and dirty hash table
+    return [palette[hash(n) % len(palette)] for n in names]
 
 
 class BasePlot(metaclass=ABCMeta):

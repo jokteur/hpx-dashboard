@@ -188,7 +188,7 @@ class DataCollection:
         if index >= len(self.task_data[locality]["default"][worker]):
             return np.array([])
         else:
-            return np.array(self.task_data[locality]["default"][worker][index:])
+            return np.array(self.task_data[locality]["default"][worker][index:], dtype="O")
 
     def get_data(self, fullname: str, instance_name: tuple, index=0):
         """"""

@@ -10,6 +10,8 @@
 """
 """
 
+from copy import deepcopy
+
 import numpy as np
 from bokeh.plotting import Figure
 from bokeh.models import ColumnDataSource, HoverTool
@@ -19,7 +21,7 @@ from ..data import DataAggregator
 
 
 class TasksPlot(BasePlot):
-    empty_dict = {"x": [], "y": [], "width": [], "name": [], "color": []}
+    empty_dict = {"x": [], "y": [], "width": [], "name": [], "colors": []}
 
     def __init__(
         self,
@@ -78,8 +80,8 @@ class TasksPlot(BasePlot):
             y="y",
             width="width",
             height=1,
-            color="color",
-            line_color="white",
+            color="colors",
+            line_color="gray",
         )
 
         figure.grid.grid_line_color = None
@@ -100,39 +102,45 @@ class TasksPlot(BasePlot):
         if not self.collection:
             return
 
-        data_dict = self.empty_dict
+        data_dict = deepcopy(self.empty_dict)
         update = False
 
         names_list = []
-        for i, (worker, index) in enumerate(self._workers.items()):
+        for worker, index in self._workers.items():
             data = self.collection.get_task_data(self._locality, worker, index)
             if data.ndim == 2:
                 self._workers[worker] += data.shape[0]
                 update = True
 
-                starts = data[:, 1].astype(float)
-                name = list(data[:, 0].astype(str))
-                names_list += name
-                ends = data[:, 2].astype(float)
+                starts = data[:, 1]
+                names = list(data[:, 0])
+                names_list += names
+                ends = data[:, 2]
 
                 width = ends - starts
                 left = np.min(starts)
 
                 data_dict["width"] += list(width)
-                data_dict["name"] += name
+                data_dict["name"] += names
                 data_dict["x"] += list(width / 2 + starts - left)
-                data_dict["y"] += list(i * np.ones(len(width)))
+                data_dict["y"] += list(int(worker) * np.ones(len(width)))
 
-        data_dict["color"] = get_colors("Viridis", names_list)
+        data_dict["colors"] = get_colors("RdYlGn", names_list)
 
         if update:
             self._data.stream(data_dict)
 
     def update(self):
         # Reset data from newest run
-        if self._last_run != DataAggregator().last_run and DataAggregator().current_run:
-            self._last_run = DataAggregator().last_run
-            self._data.data = self.empty_dict
+        if self._last_run != DataAggregator().get_last_run():
+            if DataAggregator().get_current_run():
+                self._last_run = DataAggregator().get_current_run()
+            else:
+                self._last_run = DataAggregator().get_last_run()
+
+            for worker in self._workers.keys():
+                self._workers[worker] = 0
+            self._data.data = deepcopy(self.empty_dict)
 
         if DataAggregator().get_current_run():
             self.collection = DataAggregator().get_current_run()
