@@ -12,7 +12,6 @@
 
 from abc import ABCMeta
 import random
-from itertools import cycle
 
 from bokeh.plotting import Figure
 from bokeh import palettes
