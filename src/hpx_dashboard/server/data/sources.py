@@ -63,10 +63,12 @@ class DataSources(metaclass=Singleton):
             reset = True
 
         for identifier, data in self._data[doc].items():
+            update = False
             if reset:
                 data["data_source"].data = self._get_from_collection(doc, None, identifier)
                 data["last_index"] = 0
                 data["last_time"] = 0
+                update = True
 
             new_data = {f"{identifier}": []}
             if DataAggregator().get_current_run():
@@ -82,6 +84,11 @@ class DataSources(metaclass=Singleton):
             if data_len > 0:
                 data["data_source"].stream(new_data)
                 data["last_time"] = new_data[f"{identifier}_time"][-1]
+                update = True
+
+            if update:
+                for callback in data["callbacks"]:
+                    callback()
 
     def get_data(
         self, doc, countername: str, instance: tuple, collection=None,
@@ -109,6 +116,7 @@ class DataSources(metaclass=Singleton):
                 "last_time": 0,
                 "x_name": f"{identifier}_time",
                 "y_name": f"{identifier}",
+                "callbacks": set(),
             }
 
             if collection:
@@ -121,6 +129,15 @@ class DataSources(metaclass=Singleton):
                 )
 
         return self._data[doc][identifier]
+
+    def listen_to(
+        self, callback, doc, countername: str, instance: tuple, collection=None,
+    ):
+        """Whenever a data source is updated, the callback gets called."""
+        self.get_data(doc, countername, instance, collection)
+
+        identifier = (countername, instance, collection)
+        self._data[doc][identifier]["callbacks"].insert(callback)
 
     def start_update(self, doc):
         """"""

@@ -12,14 +12,15 @@
 
 from bokeh.layouts import column
 
-from .plots import TasksPlot
+from .plots import TimeSeries
 
 
 def app(doc):
     # threads_count = Threads2(doc)
-    plot = TasksPlot(doc, "Task plot")
+    plot = TimeSeries(doc, "Active threads")
 
-    # put the button and plot in a layout and add to the document
+    # # put the button and plot in a layout and add to the document
     p = plot.plot()
+
     doc.add_root(column(p))
     return p
