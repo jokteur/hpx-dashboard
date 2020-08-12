@@ -18,10 +18,11 @@ from bokeh.models import ColumnDataSource, HoverTool
 
 from .base import BasePlot, get_figure_options, get_colors
 from ..data import DataAggregator
+from ..utils import format_time
 
 
 class TasksPlot(BasePlot):
-    empty_dict = {"x": [], "y": [], "width": [], "name": [], "colors": []}
+    empty_dict = {"x": [], "y": [], "width": [], "name": [], "color": [], "duration": []}
 
     def __init__(
         self,
@@ -79,9 +80,10 @@ class TasksPlot(BasePlot):
             x="x",
             y="y",
             width="width",
-            height=1,
-            color="colors",
-            line_color="gray",
+            height=0.6,
+            color="color",
+            line_color="color",
+            line_alpha=0.4,
         )
 
         figure.grid.grid_line_color = None
@@ -91,7 +93,7 @@ class TasksPlot(BasePlot):
         figure.xaxis.axis_label = "Time (s)"
 
         hovertool = figure.select(HoverTool)
-        hovertool.tooltips = "@name"
+        hovertool.tooltips = "Name: @name, Duration: @duration"
         hovertool.point_policy = "follow_mouse"
 
         self.layout = figure
@@ -113,6 +115,7 @@ class TasksPlot(BasePlot):
                 update = True
 
                 starts = data[:, 1]
+                print(starts[0])
                 names = list(data[:, 0])
                 names_list += names
                 ends = data[:, 2]
@@ -122,13 +125,14 @@ class TasksPlot(BasePlot):
 
                 data_dict["width"] += list(width)
                 data_dict["name"] += names
+                data_dict["duration"] += map(format_time, list(width))
                 data_dict["x"] += list(width / 2 + starts - left)
                 data_dict["y"] += list(int(worker) * np.ones(len(width)))
 
-        data_dict["colors"] = get_colors("RdYlGn", names_list)
+        data_dict["color"] = get_colors("RdYlGn", names_list)
 
         if update:
-            self._data.stream(data_dict)
+            self._data.stream(data_dict, 1000)
 
     def update(self):
         # Reset data from newest run
