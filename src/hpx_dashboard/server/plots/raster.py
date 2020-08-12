@@ -74,6 +74,9 @@ def shade(data, x, y, colors=None, **kwargs):
             elif "y_range" in kwargs:
                 plot = _is_data_in_range(df, x, y, y_range=kwargs["y_range"])
 
+            if len(df[x]) == 0 or len(df[y]) == 0:
+                plot = False
+
             if plot:
                 aggs.append(cvs.line(df, x, y) for (x, y) in list(zip(x, y)))
                 if colors:
@@ -97,11 +100,14 @@ def shade(data, x, y, colors=None, **kwargs):
             elif "y_range" in kwargs:
                 plot = _is_data_in_range(df, x[i], y[i], y_range=kwargs["y_range"])
 
+            if len(df[x[i]]) == 0 or len(df[y[i]]) == 0:
+                plot = False
+
             if plot:
                 aggs.append(cvs.line(df, x[i], y[i]))
                 if colors:
                     cs.append(colors[i])
-
+    print(aggs)
     if not aggs:
         return xr.DataArray(np.zeros((kwargs["plot_width"], kwargs["plot_height"])))
 
@@ -132,12 +138,10 @@ def get_ranges(data, x, y):
     x_range = (finfo.max, finfo.min)
     y_range = (finfo.max, finfo.min)
     if isinstance(data, (dict, pd.DataFrame)):
-        print(data)
         xs = np.array([[min(data[x_col]), max(data[x_col])] for x_col in x])
         ys = np.array([[min(data[y_col]), max(data[y_col])] for y_col in y])
         x_range = (np.min(xs[:, 0]), np.max(xs[:, 1]))
         y_range = (np.min(ys[:, 0]), np.max(ys[:, 1]))
-        return x_range, y_range
     elif isinstance(data, (list, tuple)):
         if len(y) != len(data):
             raise ValueError(
@@ -147,19 +151,21 @@ def get_ranges(data, x, y):
         for i, line in enumerate(data):
             x_range = (min(min(line[x[i]]), x_range[0]), max(max(line[x[i]]), x_range[1]))
             y_range = (min(min(line[y[i]]), y_range[0]), max(max(line[y[i]]), y_range[1]))
-        return x_range, y_range
+
+    if x_range[0] == y_range[0] == finfo.max or x_range[1] == y_range[0] == finfo.min:
+        return (0.0, 1.0), (0.0, 1.0)
+    return x_range, y_range
 
 
 class ShadedTimeSeries(BasePlot):
     """"""
 
     def __init__(
-        self, doc, title, data, x, y, colors=None, refresh_rate=1000, **kwargs,
+        self, doc, data, x, y, colors=None, refresh_rate=1000, **kwargs,
     ):
         """"""
-        super().__init__(doc, title, refresh_rate)
+        super().__init__(doc, refresh_rate)
 
-        self._title = title
         self._kwargs = kwargs
         self._fixe_range = False
         self.throttledEvent = ThrottledEvent(doc, 50)
@@ -174,7 +180,7 @@ class ShadedTimeSeries(BasePlot):
         self._plot_width = 800
         self._plot_height = 300
 
-        defaults_opts = dict(plot_width=800, plot_height=300, title=title)
+        defaults_opts = dict(plot_width=800, plot_height=300, title="")
 
         defaults_opts.update(
             (key, value) for key, value in kwargs.items() if key in get_figure_options()

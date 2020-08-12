@@ -27,7 +27,6 @@ class TasksPlot(BasePlot):
     def __init__(
         self,
         doc,
-        title,
         locality="0",
         window_size=10,
         worker="*",
@@ -36,7 +35,7 @@ class TasksPlot(BasePlot):
         **kwargs,
     ):
         """"""
-        super().__init__(doc, title, refresh_rate)
+        super().__init__(doc, refresh_rate)
 
         self._locality = locality
         self._window_size = window_size

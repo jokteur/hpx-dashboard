@@ -51,10 +51,9 @@ def get_colors(palette, names, shuffle=True):
 class BasePlot(metaclass=ABCMeta):
     """"""
 
-    def __init__(self, doc, title, refresh_rate=500):
+    def __init__(self, doc, refresh_rate=500):
         """"""
         self._root = None
-        self._title = title
         self._buffer = None
         self._refresh_rate = refresh_rate
         self._doc = doc

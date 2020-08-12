@@ -38,18 +38,19 @@ class TimeSeries(BasePlot):
     _x_range = None
     _y_range = None
 
-    def __init__(self, doc, title, shade=False, refresh_rate=200, **kwargs):
+    def __init__(self, doc, shade=False, refresh_rate=200, **kwargs):
         """"""
-        super().__init__(doc, title, refresh_rate=refresh_rate)
+        super().__init__(doc, refresh_rate=refresh_rate)
 
         self._is_shaded = shade
         self._root = column(empty_placeholder())
         self.start_update()
 
-        self._defaults_opts = dict(plot_width=800, plot_height=400, title=title)
+        self._defaults_opts = dict(plot_width=800, plot_height=400, title="")
         self._defaults_opts.update(
             (key, value) for key, value in kwargs.items() if key in get_figure_options()
         )
+        self._make_figure()
 
     def add_line(self, countername, instance, collection=None, pretty_name=None):
         """"""
@@ -85,6 +86,7 @@ class TimeSeries(BasePlot):
         self._data_sources.clear()
 
     def update(self):
+        print(self._reshade)
         if self._reshade and self._is_shaded:
             self._data = {}
             self._x = []
@@ -107,22 +109,17 @@ class TimeSeries(BasePlot):
             self._reshade = False
 
     def _set_update(self):
+        print("set_reshade")
         self._reshade = True
 
     def _make_figure(self):
         if self._is_shaded:
             self._shaded_fig = ShadedTimeSeries(
-                self._doc,
-                self._title,
-                self._data,
-                self._x,
-                self._y,
-                self._colors,
-                **self._defaults_opts,
+                self._doc, self._data, self._x, self._y, self._colors, **self._defaults_opts,
             )
             self._figure = self._shaded_fig.plot()
         else:
-            self._figure = Figure(self._defaults_opts)
+            self._figure = Figure(**self._defaults_opts)
             for key, ds in self._data_sources.items():
                 if key not in self._glyphs:
                     self._glyphs[key] = self._figure.line(

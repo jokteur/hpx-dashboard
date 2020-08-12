@@ -137,7 +137,7 @@ class DataSources(metaclass=Singleton):
         self.get_data(doc, countername, instance, collection)
 
         identifier = (countername, instance, collection)
-        self._data[doc][identifier]["callbacks"].insert(callback)
+        self._data[doc][identifier]["callbacks"].add(callback)
 
     def start_update(self, doc):
         """"""
