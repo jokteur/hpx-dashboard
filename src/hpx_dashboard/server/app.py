@@ -18,10 +18,13 @@ from .plots import TimeSeries
 
 def app(doc):
     # threads_count = Threads2(doc)
-    plot = TimeSeries(doc, title="Active threads", shade=False)
+    plot = TimeSeries(doc, title="Active threads", shade=True)
 
     plot.add_line(
-        "threads/count/instantaneous/active", format_instance("0"), pretty_name="Active threads"
+        "threads/count/instantaneous/staged", format_instance("0"), pretty_name="Active threads"
+    )
+    plot.add_line(
+        "threads/count/instantaneous/pending", format_instance("0"), pretty_name="Active threads #1"
     )
 
     # # put the button and plot in a layout and add to the document

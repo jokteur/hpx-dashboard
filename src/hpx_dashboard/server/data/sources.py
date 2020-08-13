@@ -51,7 +51,7 @@ class DataSources(metaclass=Singleton):
                 self._data[doc][identifier]["last_index"] = int(data[-1, 1])
                 data_dict = {
                     f"{identifier}_time": data[:, 2],
-                    f"{identifier}": data[:, 4].astype(float),
+                    f"{identifier}": data[:, 4],
                 }
         return data_dict
 

@@ -17,9 +17,12 @@ def _is_intersecting(interval1, interval2):
 
 def _is_data_in_range(df, x_col, y_col, x_range=None, y_range=None):
     """"""
+    if not len(df[x_col]) or not len(df[y_col]):
+        return False
+
     if x_range and y_range:
-        idx_left = df[x_col].sub(x_range[0]).abs().idxmin()
-        idx_right = df[x_col].sub(x_range[1]).abs().idxmin()
+        idx_left = df[x_col].sub(x_range[0]).astype(float).abs().idxmin()
+        idx_right = df[x_col].sub(x_range[1]).astype(float).abs().idxmin()
         if idx_left == idx_right:
             return False
         minx, miny = min(df[x_col][idx_left:idx_right]), min(df[y_col][idx_left:idx_right])
@@ -35,7 +38,6 @@ def _is_data_in_range(df, x_col, y_col, x_range=None, y_range=None):
 
 def shade(data, x, y, colors=None, **kwargs):
     """"""
-    cvs = ds.Canvas(**kwargs)
 
     if "plot_width" not in kwargs or "plot_height" not in kwargs:
         raise ValueError("Please provide plot_width and plot_height for the canvas.")
@@ -59,12 +61,19 @@ def shade(data, x, y, colors=None, **kwargs):
     elif isinstance(colors, str):
         colors = [colors] * len(y)
 
+    if kwargs["x_range"][0] == kwargs["x_range"][1]:
+        kwargs["x_range"] = (kwargs["x_range"][0] - 1, kwargs["x_range"][0] + 1)
+    if kwargs["y_range"][0] == kwargs["y_range"][1]:
+        kwargs["y_range"] = (kwargs["y_range"][0] - 1, kwargs["y_range"][0] + 1)
+
+    cvs = ds.Canvas(**kwargs)
     aggs = []
     cs = []
     if isinstance(data, (dict, pd.DataFrame)):
         df = data
         if not isinstance(data, pd.DataFrame):
-            df = pd.DataFrame(data)
+            df = pd.DataFrame(data).astype(float)
+
         for x, y, c in list(zip(x, y, colors)):
             plot = True
             if "x_range" in kwargs and "y_range" in kwargs:
@@ -90,7 +99,7 @@ def shade(data, x, y, colors=None, **kwargs):
         for i, line in enumerate(data):
             df = line
             if not isinstance(line, pd.DataFrame):
-                df = pd.DataFrame(line)
+                df = pd.DataFrame(line).astype(float)
 
             plot = True
             if "x_range" in kwargs and "y_range" in kwargs:
@@ -107,7 +116,7 @@ def shade(data, x, y, colors=None, **kwargs):
                 aggs.append(cvs.line(df, x[i], y[i]))
                 if colors:
                     cs.append(colors[i])
-    print(aggs)
+
     if not aggs:
         return xr.DataArray(np.zeros((kwargs["plot_width"], kwargs["plot_height"])))
 
@@ -138,10 +147,11 @@ def get_ranges(data, x, y):
     x_range = (finfo.max, finfo.min)
     y_range = (finfo.max, finfo.min)
     if isinstance(data, (dict, pd.DataFrame)):
-        xs = np.array([[min(data[x_col]), max(data[x_col])] for x_col in x])
-        ys = np.array([[min(data[y_col]), max(data[y_col])] for y_col in y])
-        x_range = (np.min(xs[:, 0]), np.max(xs[:, 1]))
-        y_range = (np.min(ys[:, 0]), np.max(ys[:, 1]))
+        xs = np.array([[min(data[x_col]), max(data[x_col])] for x_col in x if len(data[x_col])])
+        ys = np.array([[min(data[y_col]), max(data[y_col])] for y_col in y if len(data[y_col])])
+        if len(xs) and len(ys):
+            x_range = (np.min(xs[:, 0]), np.max(xs[:, 1]))
+            y_range = (np.min(ys[:, 0]), np.max(ys[:, 1]))
     elif isinstance(data, (list, tuple)):
         if len(y) != len(data):
             raise ValueError(
@@ -149,6 +159,8 @@ def get_ranges(data, x, y):
                 "then y and data should be the same length."
             )
         for i, line in enumerate(data):
+            if not len(line[x[i]]) or not len(line[y[i]]):
+                continue
             x_range = (min(min(line[x[i]]), x_range[0]), max(max(line[x[i]]), x_range[1]))
             y_range = (min(min(line[y[i]]), y_range[0]), max(max(line[y[i]]), y_range[1]))
 
@@ -271,12 +283,17 @@ class ShadedTimeSeries(BasePlot):
         self._data = data
         self._x = x
         self._y = y
-        if x_range:
-            self._current_x_range = x_range
-        if y_range:
-            self._current_y_range = y_range
+
+        _x_range, _y_range = get_ranges(data, x, y)
+        if not x_range:
+            x_range = _x_range
+        if not y_range:
+            y_range = _y_range
         if colors:
             self._colors = colors
+
+        self._current_x_range = x_range
+        self._current_y_range = y_range
 
         self._reshade()
 

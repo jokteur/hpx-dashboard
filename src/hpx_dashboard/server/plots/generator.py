@@ -50,7 +50,6 @@ class TimeSeries(BasePlot):
         self._defaults_opts.update(
             (key, value) for key, value in kwargs.items() if key in get_figure_options()
         )
-        self._make_figure()
 
     def add_line(self, countername, instance, collection=None, pretty_name=None):
         """"""
@@ -68,12 +67,9 @@ class TimeSeries(BasePlot):
 
         if self._is_shaded:
             self._reshade = True
-        elif not self._figure:
-            self._make_figure()
         else:
-            self._glyphs[key] = self._figure.line(
-                x=ds["x_name"], y=ds["y_name"], source=ds["data_source"], color=self._colors[key],
-            )
+            self._make_figure()
+            self._rebuild_figure = False
 
     def remove_line(self, countername, instance, collection=None):
         """"""
@@ -86,13 +82,12 @@ class TimeSeries(BasePlot):
         self._data_sources.clear()
 
     def update(self):
-        print(self._reshade)
         if self._reshade and self._is_shaded:
-            self._data = {}
+            self._data = []
             self._x = []
             self._y = []
             for key, ds in self._data_sources.items():
-                self._data.update(ds["data_source"].data)
+                self._data.append(ds["data_source"].data)
                 self._x.append(ds["x_name"])
                 self._y.append(ds["y_name"])
 
@@ -104,29 +99,43 @@ class TimeSeries(BasePlot):
 
         if self._reshade and self._is_shaded:
             self._shaded_fig.set_data(
-                self._data, self._x, self._y, self._colors.values(), self._x_range, self._y_range
+                self._data,
+                self._x,
+                self._y,
+                list(self._colors.values()),
+                self._x_range,
+                self._y_range,
             )
             self._reshade = False
 
     def _set_update(self):
-        print("set_reshade")
         self._reshade = True
 
     def _make_figure(self):
+        if self._figure:
+            del self._figure
+            self._glyphs.clear()
+
         if self._is_shaded:
             self._shaded_fig = ShadedTimeSeries(
-                self._doc, self._data, self._x, self._y, self._colors, **self._defaults_opts,
+                self._doc,
+                self._data,
+                self._x,
+                self._y,
+                list(self._colors.values()),
+                **self._defaults_opts,
             )
             self._figure = self._shaded_fig.plot()
         else:
             self._figure = Figure(**self._defaults_opts)
+
             for key, ds in self._data_sources.items():
                 if key not in self._glyphs:
                     self._glyphs[key] = self._figure.line(
                         x=ds["x_name"],
                         y=ds["y_name"],
                         source=ds["data_source"],
-                        color=self._colors[key],
+                        line_color=self._colors[key],
                     )
 
         self._root.children[0] = self._figure
