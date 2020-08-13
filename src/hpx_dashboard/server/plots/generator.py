@@ -38,7 +38,7 @@ class TimeSeries(BasePlot):
     _x_range = None
     _y_range = None
 
-    def __init__(self, doc, shade=False, refresh_rate=200, **kwargs):
+    def __init__(self, doc, shade=False, refresh_rate=250, **kwargs):
         """"""
         super().__init__(doc, refresh_rate=refresh_rate)
 
@@ -76,10 +76,14 @@ class TimeSeries(BasePlot):
         if (countername, instance, collection) in self._data_sources:
             del self._data_sources[(countername, instance, collection)]
             del self._names[(countername, instance, collection)]
+            del self._glyphs[(countername, instance, collection)]
 
     def remove_all(self):
         """"""
         self._data_sources.clear()
+        self._names.clear()
+        self._glyphs.clear()
+        self._make_figure()
 
     def update(self):
         if self._reshade and self._is_shaded:

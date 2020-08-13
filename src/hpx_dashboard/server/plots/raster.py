@@ -61,6 +61,13 @@ def shade(data, x, y, colors=None, **kwargs):
     elif isinstance(colors, str):
         colors = [colors] * len(y)
 
+    if "x_range" not in kwargs or "y_range" not in kwargs:
+        x_range, y_range = get_ranges(data, x, y)
+        if "x_range" not in kwargs:
+            kwargs["x_range"] = x_range
+        if "y_range" not in kwargs:
+            kwargs["y_range"] = y_range
+
     if kwargs["x_range"][0] == kwargs["x_range"][1]:
         kwargs["x_range"] = (kwargs["x_range"][0] - 1, kwargs["x_range"][0] + 1)
     if kwargs["y_range"][0] == kwargs["y_range"][1]:
@@ -74,20 +81,24 @@ def shade(data, x, y, colors=None, **kwargs):
         if not isinstance(data, pd.DataFrame):
             df = pd.DataFrame(data).astype(float)
 
-        for x, y, c in list(zip(x, y, colors)):
+        iterator = zip(x, y, y)
+        if colors:
+            iterator = zip(x, y, colors)
+
+        for xn, yn, c in list(iterator):
             plot = True
             if "x_range" in kwargs and "y_range" in kwargs:
-                plot = _is_data_in_range(df, x, y, kwargs["x_range"], kwargs["y_range"])
+                plot = _is_data_in_range(df, xn, yn, kwargs["x_range"], kwargs["y_range"])
             elif "x_range" in kwargs:
-                plot = _is_data_in_range(df, x, y, kwargs["x_range"])
+                plot = _is_data_in_range(df, xn, yn, kwargs["x_range"])
             elif "y_range" in kwargs:
-                plot = _is_data_in_range(df, x, y, y_range=kwargs["y_range"])
+                plot = _is_data_in_range(df, xn, yn, y_range=kwargs["y_range"])
 
-            if len(df[x]) == 0 or len(df[y]) == 0:
+            if len(df[xn]) == 0 or len(df[yn]) == 0:
                 plot = False
 
             if plot:
-                aggs.append(cvs.line(df, x, y) for (x, y) in list(zip(x, y)))
+                aggs.append(cvs.line(df, xn, yn))
                 if colors:
                     cs.append(c)
     elif isinstance(data, (list, tuple)):
@@ -118,13 +129,12 @@ def shade(data, x, y, colors=None, **kwargs):
                     cs.append(colors[i])
 
     if not aggs:
-        return xr.DataArray(np.zeros((kwargs["plot_width"], kwargs["plot_height"])))
-
+        return xr.DataArray(np.zeros((kwargs["plot_height"], kwargs["plot_width"]), dtype=int))
     if colors:
         imgs = [tf.shade(aggs[i], cmap=[c]) for i, c in enumerate(cs)]
         return tf.stack(*imgs)
     else:
-        imgs = [tf.shade(aggs[i]) for i, c in range(len(y))]
+        imgs = [tf.shade(aggs[i]) for i in range(len(y))]
         return tf.stack(*imgs)
 
 
@@ -179,7 +189,8 @@ class ShadedTimeSeries(BasePlot):
         super().__init__(doc, refresh_rate)
 
         self._kwargs = kwargs
-        self._fixe_range = False
+        self._hold_range_x = False
+        self._hold_range_y = False
         self.throttledEvent = ThrottledEvent(doc, 50)
 
         self._x = x
@@ -189,27 +200,25 @@ class ShadedTimeSeries(BasePlot):
 
         self._x_range, self._y_range = get_ranges(data, x, y)
         self._current_x_range, self._current_y_range = self._x_range, self._y_range
-        self._plot_width = 800
-        self._plot_height = 300
 
-        defaults_opts = dict(plot_width=800, plot_height=300, title="")
+        self._defaults_opts = dict(plot_width=800, plot_height=300, title="")
 
-        defaults_opts.update(
+        self._defaults_opts.update(
             (key, value) for key, value in kwargs.items() if key in get_figure_options()
         )
 
-        if "x_range" in kwargs:
-            self._current_x_range = kwargs["x_range"]
-        if "y_range" in kwargs:
-            self._current_y_range = kwargs["y_range"]
+        if "x_range" in self._defaults_opts:
+            self._current_x_range = self._defaults_opts["x_range"]
+        if "y_range" in self._defaults_opts:
+            self._current_y_range = self._defaults_opts["y_range"]
 
         img = shade(
             data,
             x,
             y,
             colors,
-            plot_width=kwargs["plot_width"],
-            plot_height=kwargs["plot_height"],
+            plot_width=self._defaults_opts["plot_width"],
+            plot_height=self._defaults_opts["plot_height"],
             x_range=self._current_x_range,
             y_range=self._current_y_range,
         )
@@ -223,10 +232,12 @@ class ShadedTimeSeries(BasePlot):
             }
         )
 
-        self._root = figure(**kwargs)
+        self._root = figure(**self._defaults_opts)
         self._root.x_range.range_padding = self._root.y_range.range_padding = 0
         self._root.image_rgba(image="img", source=self._ds, x="x", y="y", dw="dw", dh="dh")
         self._root.on_event(Reset, self._reset)
+
+        self.start_update()
 
     def _reshade(self):
         """"""
@@ -237,8 +248,8 @@ class ShadedTimeSeries(BasePlot):
                 self._x,
                 self._y,
                 self._colors,
-                plot_width=self._plot_width,
-                plot_height=self._plot_height,
+                plot_width=self._defaults_opts["plot_width"],
+                plot_height=self._defaults_opts["plot_height"],
                 x_range=self._current_x_range,
                 y_range=self._current_y_range,
             )
@@ -257,6 +268,7 @@ class ShadedTimeSeries(BasePlot):
         self._x_range, self._y_range = get_ranges(self._data, self._x, self._y)
         self._current_x_range, self._current_y_range = self._x_range, self._y_range
         self._reshade()
+        self._hold_range_x = self._hold_range_y = False
 
     def update(self):
         """"""
@@ -274,26 +286,50 @@ class ShadedTimeSeries(BasePlot):
             or y_range[0] != y_start
             or y_range[1] != y_end
         ):
+            if x_range[0] != x_start or x_range[1] != x_end:
+                self._hold_range_x = True
+            if y_range[0] != y_start or y_range[1] != y_end:
+                self._hold_range_y = True
+
             self._current_x_range = x_range
             self._current_y_range = y_range
             self._reshade()
 
-    def set_data(self, data, x, y, colors=None, x_range=None, y_range=None):
+    def set_data(
+        self,
+        data,
+        x,
+        y,
+        colors=None,
+        x_range=None,
+        y_range=None,
+        force_range_x=False,
+        force_range_y=False,
+    ):
         """"""
         self._data = data
         self._x = x
         self._y = y
 
         _x_range, _y_range = get_ranges(data, x, y)
-        if not x_range:
-            x_range = _x_range
-        if not y_range:
-            y_range = _y_range
+        if not self._hold_range_x:
+            if not x_range:
+                self._current_x_range = _x_range
+            else:
+                self._current_x_range = x_range
+        elif force_range_x and x_range:
+            self._current_x_range = x_range
+
+        if not self._hold_range_y:
+            if not y_range:
+                self._current_y_range = _y_range
+            else:
+                self._current_y_range = y_range
+        elif force_range_y and y_range:
+            self._current_y_range = y_range
+
         if colors:
             self._colors = colors
-
-        self._current_x_range = x_range
-        self._current_y_range = y_range
 
         self._reshade()
 
