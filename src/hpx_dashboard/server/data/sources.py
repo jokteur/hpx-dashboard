@@ -106,10 +106,7 @@ class DataSources(metaclass=Singleton):
         # Build the data source from scratch if it does not exists
         if identifier not in self._data[doc]:
             if not collection:
-                if DataAggregator().get_current_run():
-                    collection = DataAggregator().get_current_run()
-                elif DataAggregator().get_last_run():
-                    collection = DataAggregator().get_last_run()
+                collection = self.get_live_collection()
 
             self._data[doc][identifier] = {
                 "last_index": 0,
@@ -129,6 +126,15 @@ class DataSources(metaclass=Singleton):
                 )
 
         return self._data[doc][identifier]
+
+    def get_live_collection(self):
+        """"""
+        collection = None
+        if DataAggregator().get_current_run():
+            collection = DataAggregator().get_current_run()
+        elif DataAggregator().get_last_run():
+            collection = DataAggregator().get_last_run()
+        return collection
 
     def listen_to(
         self, callback, doc, countername: str, instance: tuple, collection=None,
