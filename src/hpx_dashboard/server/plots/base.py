@@ -11,6 +11,7 @@
 """
 
 from abc import ABCMeta
+from collections import OrderedDict
 import random
 import hashlib
 import time
@@ -26,26 +27,43 @@ def get_figure_options():
     return o
 
 
-def get_colors(palette, names, shuffle=True):
-    """"""
+def get_colors(palette, names, order_list=True, shuffle=True):
+    """Returns a list of colors from names with the associated color palette.
+
+    Arguments
+    ---------
+    palette : str
+        name of bokeh color palette
+    names : list
+        list of names
+    order_list : bool
+        if True, then the names are sorted and attributed in order to the color palette.
+        if False, then the hashes of the names are used to identify the color. This means
+        that in this case, the color will always be the same for a unique name.
+    """
     palette_lookup = palettes.all_palettes[palette]
+    names = list(names)
 
     # Take the biggest palette available
     max_key = max(list(sorted(palette_lookup.keys())))
     palette = palette_lookup[max_key]
 
     # Some bokeh palettes repeat colors, we want just the unique set
-    palette = list(set(palette))
+    palette = list(OrderedDict.fromkeys(palette))
 
     if shuffle:
         # Consistently shuffle palette - prevents just using low-range
-        random.Random(42).shuffle(palette)
+        random.Random(1324).shuffle(palette)
 
-    # Quick and dirty hash table
-    return [
-        palette[int(hashlib.sha256(n.encode("utf-8")).hexdigest(), 16) % len(palette)]
-        for n in names
-    ]
+    if order_list:
+        names.sort()
+        return [palette[i % len(palette)] for i in range(len(names))]
+    else:
+        # Quick and dirty hash table
+        return [
+            palette[int(hashlib.md5(n.encode("utf-8")).hexdigest(), 16) % len(palette)]
+            for n in names
+        ]
 
 
 class BasePlot(metaclass=ABCMeta):

@@ -1,3 +1,5 @@
+import time
+
 from bokeh.models import ColumnDataSource
 from bokeh.plotting import figure
 from bokeh.events import Reset
@@ -43,6 +45,11 @@ def _normalize_ranges(x_range, y_range):
     if y_range[0] == y_range[1]:
         y_range = (max(y_range[0] - 1.0, 0.0), y_range[0] + 1.0)
     return x_range, y_range
+
+
+def _compare_ranges(range1, range2, epsilon=1e-3):
+    """Returns true if the both range are close enough (within epsilon)."""
+    return abs(range1[0] - range2[0]) < epsilon and abs(range1[1] - range2[1]) < epsilon
 
 
 def shade(data, x, y, colors=None, **kwargs):
@@ -188,10 +195,10 @@ def get_ranges(data, x, y):
 class ShadedTimeSeries(BasePlot):
     """"""
 
-    _x_range_changed = False
-    _y_range_changed = False
+    # Variable to correctly update the range if necessary
     _keep_x_range = False
     _keep_y_range = False
+    _last_reset = 0
 
     _num_update = 0
 
@@ -202,7 +209,12 @@ class ShadedTimeSeries(BasePlot):
         super().__init__(doc, refresh_rate)
 
         self._kwargs = kwargs
-        self.throttledEvent = ThrottledEvent(doc, 50)
+        self._throttledEvent = ThrottledEvent(doc, 50)
+
+        # When the user resets the plot, sometimes the bokeh range has not been updated
+        # before self._update() is called. self._update would then try to reset back the
+        # interval to the previous state. The cooldown is to avoid this.
+        self._cooldown_interval = refresh_rate * 2
 
         self._x = x
         self._y = y
@@ -251,11 +263,10 @@ class ShadedTimeSeries(BasePlot):
 
         self.start_update()
 
-    def _reshade(self, immediate=False):
+    def _reshade(self, immediate=False, message=""):
         """"""
 
         def gen():
-            print("Set", self._current_x_range)
             img = shade(
                 self._data,
                 self._x,
@@ -277,7 +288,7 @@ class ShadedTimeSeries(BasePlot):
         if immediate:
             gen()
         else:
-            self.throttledEvent.add_event(gen)
+            self._throttledEvent.add_event(gen)
 
     def _reset(self, event):
         """"""
@@ -285,12 +296,16 @@ class ShadedTimeSeries(BasePlot):
         self._current_x_range, self._current_y_range = self._x_range, self._y_range
         self._reshade()
         self._keep_x_range = self._keep_y_range = False
+        self._last_reset = time.time()
 
     def update(self):
         """"""
         # Dirty hack because for some reason the plot range does not get
         # updated after the first update
         if self._num_update == 1:
+            return
+
+        if time.time() - self._last_reset < self._cooldown_interval / 1000:
             return
 
         x_start = float(self._ds.data["x"][0])
@@ -306,12 +321,12 @@ class ShadedTimeSeries(BasePlot):
 
         reshade = False
 
-        if x_range != old_x_range and self._root.x_range.start:
+        if not _compare_ranges(x_range, old_x_range) and self._root.x_range.start:
             self._current_x_range = x_range
             self._keep_x_range = True
             reshade = True
 
-        if y_range != old_y_range and self._root.y_range.start:
+        if not _compare_ranges(y_range, old_y_range) and self._root.y_range.start:
             self._current_y_range = y_range
             self._keep_y_range = True
             reshade = True
