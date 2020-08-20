@@ -49,6 +49,8 @@ def _normalize_ranges(x_range, y_range):
 
 def _compare_ranges(range1, range2, epsilon=1e-3):
     """Returns true if the both range are close enough (within epsilon)."""
+    if not range1[0] or not range2[0]:
+        return False
     return abs(range1[0] - range2[0]) < epsilon and abs(range1[1] - range2[1]) < epsilon
 
 
