@@ -11,8 +11,8 @@
 """
 """
 
-from .generator import TimeSeries
+from .generator import TimeSeries, Dummy
 from .threads import Memory, ThreadsPlot
 from .tasks import TasksPlot
 
-__all__ = ["Memory", "ThreadsPlot", "TimeSeries", "TasksPlot"]
+__all__ = ["Memory", "ThreadsPlot", "TimeSeries", "TasksPlot", "Dummy"]

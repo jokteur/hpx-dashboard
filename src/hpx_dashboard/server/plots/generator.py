@@ -12,11 +12,74 @@
 
 from bokeh.plotting import Figure
 from bokeh.layouts import column
+from bokeh.models.widgets import Button
 
 from ..data import DataSources
 from ..widgets import empty_placeholder
 from .base import BasePlot, get_colors, get_figure_options
 from .raster import ShadedTimeSeries
+
+import numpy as np
+
+
+class Dummy(BasePlot):
+    """"""
+
+    def __init__(self, doc, shade=True, refresh_rate=500, **kwargs):
+        super().__init__(doc, refresh_rate=refresh_rate)
+
+        self._is_shaded = shade
+
+        self.num_data = 1000
+        self.data = {"x": np.array([0]), "y": np.array([0])}
+
+        self._shaded_fig = ShadedTimeSeries(doc, self.data, "x", "y", title="Test")
+        self.button = Button(name="Start")
+        self.button.on_click(self.click)
+
+        self._root = column(empty_placeholder(), empty_placeholder())
+
+        self._defaults_opts = dict(plot_width=800, plot_height=400, title="")
+        self._defaults_opts.update(
+            (key, value) for key, value in kwargs.items() if key in get_figure_options()
+        )
+
+        self.stream = False
+        self._make_figure()
+        self.start_update()
+
+    def click(self):
+        self.stream = not self.stream
+
+    def update(self):
+
+        if self.stream:
+            self._data = []
+            self._x = []
+            self._y = []
+
+            last_time = self.data["x"][-1]
+            last_y = self.data["y"][-1]
+
+            rand = np.random.normal(0, np.sqrt(10 / self.num_data), size=self.num_data)
+            new_y = np.cumsum(rand) + last_y
+            new_time = np.linspace(
+                last_time + 1e-3, last_time + self._refresh_rate / 1000, self.num_data
+            )
+            x = list(np.append(self.data["x"], new_time))
+            y = list(np.append(self.data["y"], new_y))
+            self.data["x"] = x
+            self.data["y"] = y
+
+            self._shaded_fig.set_data(self.data, "x", "y", "red")
+            self._reshade = False
+
+            print("-----")
+
+    def _make_figure(self):
+        """"""
+        self._root.children[0] = self.button
+        self._root.children[1] = self._shaded_fig.plot()
 
 
 class TimeSeries(BasePlot):
