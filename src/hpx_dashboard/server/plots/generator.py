@@ -9,6 +9,7 @@
 
 """
 """
+from collections import OrderedDict
 
 from bokeh.plotting import Figure
 from bokeh.layouts import column
@@ -85,15 +86,16 @@ class Dummy(BasePlot):
 class TimeSeries(BasePlot):
     """"""
 
-    _data_sources = {}
-    _names = {}
-    _glyphs = {}
+    _data_sources = OrderedDict()
+    _names = OrderedDict()
+    _glyphs = OrderedDict()
 
     # For shaded data
     _data = []
     _x = []
     _y = []
-    _colors = {}
+    _colors = []
+    _color_ids = OrderedDict()
 
     _rebuild_figure = True
     _figure = None
@@ -101,7 +103,7 @@ class TimeSeries(BasePlot):
     _x_range = None
     _y_range = None
 
-    def __init__(self, doc, shade=False, refresh_rate=250, **kwargs):
+    def __init__(self, doc, shade=False, refresh_rate=500, **kwargs):
         """"""
         super().__init__(doc, refresh_rate=refresh_rate)
 
@@ -124,7 +126,7 @@ class TimeSeries(BasePlot):
         ds = DataSources().get_data(self._doc, countername, instance, collection)
         self._data_sources[key] = ds
         self._names[key] = pretty_name
-        self._colors[key] = get_colors("Viridis", [pretty_name])[0]
+        self._colors = get_colors("Category20", list(self._names.values()))
 
         DataSources().listen_to(self._set_update, self._doc, countername, instance, collection)
 
@@ -166,12 +168,7 @@ class TimeSeries(BasePlot):
 
         if self._reshade and self._is_shaded:
             self._shaded_fig.set_data(
-                self._data,
-                self._x,
-                self._y,
-                list(self._colors.values()),
-                self._x_range,
-                self._y_range,
+                self._data, self._x, self._y, self._colors, self._x_range, self._y_range,
             )
             self._reshade = False
 
@@ -185,12 +182,7 @@ class TimeSeries(BasePlot):
 
         if self._is_shaded:
             self._shaded_fig = ShadedTimeSeries(
-                self._doc,
-                self._data,
-                self._x,
-                self._y,
-                list(self._colors.values()),
-                **self._defaults_opts,
+                self._doc, self._data, self._x, self._y, self._colors, **self._defaults_opts,
             )
             self._figure = self._shaded_fig.plot()
         else:
@@ -198,11 +190,12 @@ class TimeSeries(BasePlot):
 
             for key, ds in self._data_sources.items():
                 if key not in self._glyphs:
+                    index = list(self._names.keys()).index(key)
                     self._glyphs[key] = self._figure.line(
                         x=ds["x_name"],
                         y=ds["y_name"],
                         source=ds["data_source"],
-                        line_color=self._colors[key],
+                        line_color=self._colors[index],
                     )
 
         self._root.children[0] = self._figure
