@@ -36,6 +36,15 @@ def _is_data_in_range(df, x_col, y_col, x_range=None, y_range=None):
         return True
 
 
+def _normalize_ranges(x_range, y_range):
+    """"""
+    if x_range[0] == x_range[1]:
+        x_range = (max(x_range[0] - 1.0, 0.0), x_range[0] + 1.0)
+    if y_range[0] == y_range[1]:
+        y_range = (max(y_range[0] - 1.0, 0.0), y_range[0] + 1.0)
+    return x_range, y_range
+
+
 def shade(data, x, y, colors=None, **kwargs):
     """"""
 
@@ -68,10 +77,7 @@ def shade(data, x, y, colors=None, **kwargs):
         if "y_range" not in kwargs:
             kwargs["y_range"] = y_range
 
-    if kwargs["x_range"][0] == kwargs["x_range"][1]:
-        kwargs["x_range"] = (kwargs["x_range"][0] - 1, kwargs["x_range"][0] + 1)
-    if kwargs["y_range"][0] == kwargs["y_range"][1]:
-        kwargs["y_range"] = (kwargs["y_range"][0] - 1, kwargs["y_range"][0] + 1)
+    kwargs["x_range"], kwargs["y_range"] = _normalize_ranges(kwargs["x_range"], kwargs["y_range"])
 
     cvs = ds.Canvas(**kwargs)
     aggs = []
@@ -182,15 +188,20 @@ def get_ranges(data, x, y):
 class ShadedTimeSeries(BasePlot):
     """"""
 
+    _x_range_changed = False
+    _y_range_changed = False
+    _keep_x_range = False
+    _keep_y_range = False
+
+    _num_update = 0
+
     def __init__(
-        self, doc, data, x, y, colors=None, refresh_rate=1000, **kwargs,
+        self, doc, data, x, y, colors=None, refresh_rate=500, **kwargs,
     ):
         """"""
         super().__init__(doc, refresh_rate)
 
         self._kwargs = kwargs
-        self._hold_range_x = False
-        self._hold_range_y = False
         self.throttledEvent = ThrottledEvent(doc, 50)
 
         self._x = x
@@ -198,7 +209,8 @@ class ShadedTimeSeries(BasePlot):
         self._colors = colors
         self._data = data
 
-        self._x_range, self._y_range = get_ranges(data, x, y)
+        self._x_range, self._y_range = _normalize_ranges(*get_ranges(data, x, y))
+
         self._current_x_range, self._current_y_range = self._x_range, self._y_range
 
         self._defaults_opts = dict(plot_width=800, plot_height=300, title="")
@@ -239,10 +251,11 @@ class ShadedTimeSeries(BasePlot):
 
         self.start_update()
 
-    def _reshade(self):
+    def _reshade(self, immediate=False):
         """"""
 
         def gen():
+            print("Set", self._current_x_range)
             img = shade(
                 self._data,
                 self._x,
@@ -261,77 +274,78 @@ class ShadedTimeSeries(BasePlot):
                 "dh": [self._current_y_range[1] - self._current_y_range[0]],
             }
 
-        self.throttledEvent.add_event(gen)
+        if immediate:
+            gen()
+        else:
+            self.throttledEvent.add_event(gen)
 
     def _reset(self, event):
         """"""
-        self._x_range, self._y_range = get_ranges(self._data, self._x, self._y)
+        self._x_range, self._y_range = _normalize_ranges(*get_ranges(self._data, self._x, self._y))
         self._current_x_range, self._current_y_range = self._x_range, self._y_range
         self._reshade()
-        self._hold_range_x = self._hold_range_y = False
+        self._keep_x_range = self._keep_y_range = False
 
     def update(self):
         """"""
-        x_range = (float(self._root.x_range.start), float(self._root.x_range.end))
-        y_range = (float(self._root.y_range.start), float(self._root.y_range.end))
+        # Dirty hack because for some reason the plot range does not get
+        # updated after the first update
+        if self._num_update == 1:
+            return
 
         x_start = float(self._ds.data["x"][0])
         x_end = float(x_start + self._ds.data["dw"][0])
         y_start = float(self._ds.data["y"][0])
         y_end = float(y_start + self._ds.data["dh"][0])
 
-        if (
-            x_range[0] != x_start
-            or x_range[1] != x_end
-            or y_range[0] != y_start
-            or y_range[1] != y_end
-        ):
-            if x_range[0] != x_start or x_range[1] != x_end:
-                self._hold_range_x = True
-            if y_range[0] != y_start or y_range[1] != y_end:
-                self._hold_range_y = True
+        x_range = (self._root.x_range.start, self._root.x_range.end)
+        y_range = (self._root.y_range.start, self._root.y_range.end)
 
+        old_x_range = (x_start, x_end)
+        old_y_range = (y_start, y_end)
+
+        reshade = False
+
+        if x_range != old_x_range and self._root.x_range.start:
             self._current_x_range = x_range
+            self._keep_x_range = True
+            reshade = True
+
+        if y_range != old_y_range and self._root.y_range.start:
             self._current_y_range = y_range
-            self._reshade()
+            self._keep_y_range = True
+            reshade = True
+
+        if reshade:
+            self._reshade(True)
 
     def set_data(
-        self,
-        data,
-        x,
-        y,
-        colors=None,
-        x_range=None,
-        y_range=None,
-        force_range_x=False,
-        force_range_y=False,
+        self, data, x, y, colors=None, x_range=None, y_range=None,
     ):
         """"""
         self._data = data
         self._x = x
         self._y = y
 
-        _x_range, _y_range = get_ranges(data, x, y)
-        if not self._hold_range_x:
-            if not x_range:
-                self._current_x_range = _x_range
-            else:
-                self._current_x_range = x_range
-        elif force_range_x and x_range:
-            self._current_x_range = x_range
+        _x_range, _y_range = _normalize_ranges(*get_ranges(data, x, y))
 
-        if not self._hold_range_y:
-            if not y_range:
-                self._current_y_range = _y_range
+        if not self._keep_x_range:
+            if x_range:
+                self._current_x_range = x_range
             else:
+                self._current_x_range = _x_range
+
+        if not self._keep_y_range:
+            if y_range:
                 self._current_y_range = y_range
-        elif force_range_y and y_range:
-            self._current_y_range = y_range
+            else:
+                self._current_y_range = _y_range
 
         if colors:
             self._colors = colors
 
-        self._reshade()
+        self._num_update += 1
+        self._reshade(True)
 
     def set_range(self, x_range=None, y_range=None):
         if x_range:

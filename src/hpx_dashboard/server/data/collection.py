@@ -199,7 +199,7 @@ class DataCollection:
             if index >= len(self.data[fullname][instance_name]):
                 return np.array([])
 
-            return np.array(self.data[fullname][instance_name][index:])
+            return np.array(self.data[fullname][instance_name][index:], dtype="O")
         else:
             return np.array([])
 
