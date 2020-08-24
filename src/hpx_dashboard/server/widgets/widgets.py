@@ -33,25 +33,27 @@ class BaseWidget:
     def __init__(self, doc, callback, refresh_rate=500, **kwargs):
         """"""
         BaseWidget.instance_num += 1
-        self.doc = doc
-        self.widget = empty_placeholder()
-        self.refresh_rate = refresh_rate
-        self.callback = callback
-        self.callback_object = doc.add_periodic_callback(self._update_widget, refresh_rate)
+        self._doc = doc
+        self._widget = empty_placeholder()
+        self._refresh_rate = refresh_rate
+        self._callback = callback
+        self._callback_object = doc.add_periodic_callback(self._update_widget, refresh_rate)
 
     def __del__(self):
         print("I am deleting")
-        self.doc.remove_periodic_callback(self.callback_object)
+        self._doc.remove_periodic_callback(self._callback_object)
+
+    def widget(self):
+        return self._widget
 
     def _update_widget(self):
         pass
 
 
-class SelectDataCollection(BaseWidget):
-    """Produces a widget that shows all the current and past data collection instances
-    in the form of a Select."""
+class DataCollectionWidget(BaseWidget):
+    """Produces a widget for selecting current and past data collection instances"""
 
-    def __init__(self, doc, callback, refresh_rate=500, width=450, **kwargs):
+    def __init__(self, doc, callback, refresh_rate=500, **kwargs):
         """Produces a widget that shows all the current and past data collection instances
         in the form of a Select.
 
@@ -66,27 +68,100 @@ class SelectDataCollection(BaseWidget):
         **kwargs
             arguments for the bokeh Select widget
         """
+        super().__init__(doc, callback, refresh_rate=refresh_rate, **kwargs)
+        self._collection = None
+        self._select = DataCollectionSelect(doc, self._set_collection, refresh_rate=refresh_rate)
+        self._widget = row(Div(text="<b>No data</b>"), self._select.widget())
+        self._widget_text = ""
+
+    def _set_collection(self, collection):
+        """"""
+        self._collection = collection
+        self._callback(collection)
+        self._update_widget()
+
+    def _update_widget(self):
+        if self._collection:
+            collection_list = DataAggregator().data
+            index = collection_list.index(self._collection)
+            collection = collection_list[index]
+
+            # Title of the run
+            title = f"Run #{index}"
+            if DataAggregator().get_current_run() == self._collection:
+                title += " (live)"
+
+            # Timings of the run
+            begin_time = datetime.fromtimestamp(int(collection.start_time))
+            time_info = f"Start: {begin_time}<br />"
+            if collection.end_time:
+                end_time = datetime.fromtimestamp(int(collection.end_time))
+                time_info += f"End: {end_time}"
+
+            # Num threads and localities
+            localities = collection.get_localities()
+            num_workers = collection.get_num_worker_threads(localities[0])
+
+            instance_info = ""
+            if len(localities) == 1:
+                instance_info += "1 locality"
+            else:
+                instance_info += f"{len(localities)} localities"
+
+            instance_info += "<br />"
+
+            if num_workers == 1:
+                instance_info += "1 thread per locality"
+            else:
+                instance_info += f"{num_workers} threads per locality"
+
+            text = f"""<b>{title}</b><br />
+            {time_info}<br />
+            {instance_info}"""
+
+            if text != self._widget_text:
+                self._widget.children[0] = Div(text=text)
+                self._widget_text = text
+
+
+class DataCollectionSelect(BaseWidget):
+    """Produces a widget that shows all the current and past data collection instances
+    in the form of a Select."""
+
+    def __init__(self, doc, callback, refresh_rate=500, **kwargs):
+        """Produces a widget that shows all the current and past data collection instances
+        in the form of a Select.
+
+        Arguments
+        ---------
+        doc : Bokeh Document
+            bokeh document for auto-updating the widget
+        callback : function(collection: DataCollection)
+            callback for notifying when the user selects a certain data collection
+        refresh_rate : int
+            refresh rate at which the Select refreshes and checks for new data collections (in ms)
+        **kwargs
+            arguments for the bokeh Select widget
+        """
+        self._defaults_opts = dict(width=250)
+        self._defaults_opts.update((key, value) for key, value in kwargs.items())
+
         super().__init__(doc, callback, refresh_rate=refresh_rate)
-        self.widget = Select(
+        self._widget = Select(
             name=f"Select run_{BaseWidget.instance_num}",
             options=self._generate_options(),
-            width=width,
-            **kwargs,
+            **self._defaults_opts,
         )
-        self.widget.on_change("value", self._on_change_select)
+        self._widget.on_change("value", self._on_change_select)
 
     def _generate_options(self):
         data_collection_list = ["Select run"]
         for i, run in reversed(list(enumerate(DataAggregator().data))):
-            begin_time = datetime.fromtimestamp(int(run["begin-time"]))
 
             if i == DataAggregator().current_run:
-                data_collection_list.append(f"Run {i} (current). Begin: {begin_time}")
+                data_collection_list.append(f"Run {i} (live)")
             else:
-                end_time = "N/A"
-                if run["end-time"]:
-                    end_time = datetime.fromtimestamp(int(run["end-time"]))
-                data_collection_list.append(f"Run {i} Begin: {begin_time}; End: {end_time}")
+                data_collection_list.append(f"Run {i}")
 
         return data_collection_list
 
@@ -94,13 +169,16 @@ class SelectDataCollection(BaseWidget):
     def _on_change_select(self, attr, old, new):
         if new != "Select run":
             run_id = int(new.split()[1])
-            self.callback(DataAggregator().data[run_id]["data"])
+            data = DataAggregator().data
+            self._callback(data[run_id])
         else:
-            self.callback(None)
+            self._callback(None)
 
     # Update the Select in case there are new runs
     def _update_widget(self):
-        self.widget.options = self._generate_options()
+        options = self._generate_options()
+        if options != self._widget.options:
+            self._widget.options = self._generate_options()
 
 
 class MultiCounterNameSelect(BaseWidget):
@@ -138,14 +216,14 @@ class MultiCounterNameSelect(BaseWidget):
         self.collection = collection
         self.previous_change = None
 
-        self.widget = pn.widgets.MultiChoice(
+        self._widget = pn.widgets.MultiChoice(
             name=f"Multi_select counter_{BaseWidget.instance_num}",
             options=self._generate_options(),
             width=width,
             **select_kwargs,
         )
 
-        self.widget.on
+        self._widget.on
 
     def _generate_options(self):
         if self.collection:
@@ -158,18 +236,18 @@ class MultiCounterNameSelect(BaseWidget):
         if self.previous_change != new:
             self.previous_change = new
             if new != "Select name":
-                self.callback(new)
+                self._callback(new)
                 self.autocomplete.value = new
                 self.select.value = new
             else:
                 self.previous_change = None
                 self.autocomplete.value = None
                 self.select.value = "Select name"
-                self.callback(None)
+                self._callback(None)
 
     # Update the Select and autocomplete in case there are new runs
     def _update_widget(self):
-        self.widget.options = self._generate_options()
+        self._widget.options = self._generate_options()
 
 
 class SelectCounterName(BaseWidget):
@@ -222,7 +300,7 @@ class SelectCounterName(BaseWidget):
         self.select.on_change("value", self._on_change)
         self.autocomplete.on_change("value", self._on_change)
 
-        self.widget = row(self.select, self.autocomplete)
+        self._widget = row(self.select, self.autocomplete)
 
     def _generate_options(self):
         if self.collection:
@@ -235,14 +313,14 @@ class SelectCounterName(BaseWidget):
         if self.previous_change != new:
             self.previous_change = new
             if new != "Select name":
-                self.callback(new)
+                self._callback(new)
                 self.autocomplete.value = new
                 self.select.value = new
             else:
                 self.previous_change = None
                 self.autocomplete.value = None
                 self.select.value = "Select name"
-                self.callback(None)
+                self._callback(None)
 
     # Update the Select and autocomplete in case there are new runs
     def _update_widget(self):
@@ -300,7 +378,7 @@ class SelectInstance(BaseWidget):
         self.select_locality.on_change("value", self._on_change_locality)
         self.select_instance.on_change("value", self._on_change_instance)
 
-        self.widget = row(self.select_locality, empty_placeholder())
+        self._widget = row(self.select_locality, empty_placeholder())
 
     def _generate_localities(self):
         prelude = ["Select locality"]
@@ -326,25 +404,25 @@ class SelectInstance(BaseWidget):
     def _on_change_locality(self, attr, old, new):
         if new != "Select locality":
             self.select_instance.options = self._generate_instances(new)
-            self.widget.children[1] = self.select_instance
+            self._widget.children[1] = self.select_instance
         else:
             self.select_instance.value = "Select instance"
-            self.widget.children[1] = empty_placeholder()
+            self._widget.children[1] = empty_placeholder()
 
     # Notify the user for a possible change in selection
     def _on_change_instance(self, attr, old, new):
         if new != "Select instance":
             if new == "total":
-                self.callback(format_instance(self.select_locality.value))
+                self._callback(format_instance(self.select_locality.value))
             else:
                 split = new.split()
                 pool = split[1][1:]
                 worker_thread = split[4][1:]
-                self.callback(
+                self._callback(
                     format_instance(self.select_locality.value, pool, worker_thread, False)
                 )
         else:
-            self.callback(None)
+            self._callback(None)
 
     def _update_widget(self):
         self.select_instance.options = self._generate_instances(self.select_locality.value)
@@ -373,38 +451,38 @@ class SelectCounter(BaseWidget):
         """
         super().__init__(doc, callback, refresh_rate=refresh_rate)
 
-        self.select_run = SelectDataCollection(
+        self.select_run = DataCollectionSelect(
             doc, self._update_run, width=450, title="Select run", **kwargs
         )
         self.select_counter_name = None
         self.select_instance = None
-        self.widget = column(self.select_run.widget, empty_placeholder(), empty_placeholder())
+        self._widget = column(self.select_run.widget, empty_placeholder(), empty_placeholder())
 
     def _update_run(self, collection):
         if collection:
             self.select_counter_name = SelectCounterName(
-                self.doc,
-                self.callback,
+                self._doc,
+                self._callback,
                 collection,
-                self.refresh_rate,
+                self._refresh_rate,
                 select_kwargs={"title": "Select the counter name"},
                 autocomplete_kwargs={"title": "or type in the counter name"},
             )
             self.select_instance = SelectInstance(
-                self.doc,
-                self.callback,
+                self._doc,
+                self._callback,
                 collection,
-                self.refresh_rate,
+                self._refresh_rate,
                 select_locality_kwargs={"title": "Select the locality"},
                 select_instance_kwargs={"title": "Select the instance"},
             )
-            self.widget.children[1] = self.select_counter_name.widget
-            self.widget.children[2] = self.select_instance.widget
+            self._widget.children[1] = self.select_counter_name.widget
+            self._widget.children[2] = self.select_instance.widget
         else:
             self.select_counter_name = None
             self.select_instance = None
-            self.widget.children[1] = empty_placeholder()
-            self.widget.children[2] = empty_placeholder()
+            self._widget.children[1] = empty_placeholder()
+            self._widget.children[2] = empty_placeholder()
 
 
 class PlotGeneratorWidget(BaseWidget):
@@ -439,13 +517,13 @@ class PlotGeneratorWidget(BaseWidget):
         self.selected_collection = None
         self.selected_instance = None
 
-        self.widget = column(self.add_button, empty_placeholder(), self.plot.get_plot())
+        self._widget = column(self.add_button, empty_placeholder(), self.plot.get_plot())
 
     def _selected(self, out):
         print(out)
 
     def _add_button_click(self):
-        self.widget.children[1] = column(SelectCounter(self.doc, self._selected), self.ok_button)
+        self._widget.children[1] = column(SelectCounter(self._doc, self._selected), self.ok_button)
 
     def _ok_button_click(self):
         pass

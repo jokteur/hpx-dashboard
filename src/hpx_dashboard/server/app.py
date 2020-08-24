@@ -12,34 +12,16 @@
 
 from bokeh.layouts import column
 
-from .data import format_instance
-from .plots import TimeSeries
-from .plots.raster import ShadedTimeSeries
+# from .data import format_instance
+# from .plots import TimeSeries
+from .widgets.widgets import DataCollectionWidget
 
 
 def app(doc):
-    for i in range(10):
-        data = {"x": [], "y": []}
-        a = ShadedTimeSeries(doc, data, "x", "y")
-        data = {"x": list(range(1000)), "y": list(range(1000))}
-        a.set_data(data, "x", "y")
-
-    # threads_count = Threads2(doc)
-    plot = TimeSeries(doc, title="Active threads", shade=True)
-
-    for i in range(0, 32):
-        plot.add_line(
-            "threads/count/instantaneous/staged",
-            format_instance("0", thread_id=i, is_total=False),
-            pretty_name=f"Thread staged {i}",
-        )
-        plot.add_line(
-            "threads/count/instantaneous/pending",
-            format_instance("0", thread_id=i, is_total=False),
-            pretty_name=f"Thread pending {i}",
-        )
     # put the button and plot in a layout and add to the document
-    p = plot.plot()
+    widget = DataCollectionWidget(doc, lambda x: x)
+    # p = plot.plot()
+    p = widget.widget()
 
     doc.add_root(column(p))
     return p
