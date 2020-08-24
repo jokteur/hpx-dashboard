@@ -59,8 +59,10 @@ class DataCollection:
     """
 
     def __init__(self):
+        self.start_time = None
+        self.end_time = None
+        self.counter_info = {}
         self.data = {}
-        # Contains also the task data
         self.task_data = {}
 
     def _add_instance_name(
@@ -238,3 +240,15 @@ class DataCollection:
                 return list(self.task_data[locality][pool].keys())
 
         return []
+
+    def set_start_time(self, start_time):
+        """Sets the start start of the collection."""
+        self.start_time = start_time
+
+    def set_end_time(self, end_time):
+        """Sets the end time of the collection."""
+        self.end_time = end_time
+
+    def set_counter_infos(self, counter_info):
+        """Sets the counter infos of the collection."""
+        self.counter_info = counter_info

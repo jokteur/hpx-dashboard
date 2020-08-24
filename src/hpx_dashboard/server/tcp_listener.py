@@ -49,12 +49,12 @@ class TCP_Server(TCPServer):
                             response_type == "counter-data"
                             and data_aggregator.current_run is not None
                         ):
-                            data_aggregator.current_data["data"].add_line(*sub_data)
+                            data_aggregator.current_data.add_line(*sub_data)
                             data_aggregator.dummy_counter += 1
                         elif response_type == "line":
                             logger.info(sub_data)
                         elif response_type == "task-data":
-                            data_aggregator.current_data["data"].add_task_data(*sub_data)
+                            data_aggregator.current_data.add_task_data(*sub_data)
 
                 elif response_type == "transmission_begin":
                     logger.info("BEGIN")

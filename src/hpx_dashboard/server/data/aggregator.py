@@ -39,14 +39,14 @@ class DataAggregator(metaclass=Singleton):
             dictionnary of descriptions for each available counter of the hpx application
         """
         if self.current_run is not None:
-            self.data[self.current_run]["counter-info"] = counter_infos
+            self.data[self.current_run].set_counter_infos(counter_infos)
 
     def get_last_run(self) -> Union[DataCollection, None]:
         """Returns the last active DataCollection.
         If there was no active collection, None is returned.
         """
         if self.last_run is not None:
-            return self.data[self.last_run]["data"]
+            return self.data[self.last_run]
         else:
             return None
 
@@ -59,7 +59,7 @@ class DataAggregator(metaclass=Singleton):
         If there is no collection going on, then None is returned.
         """
         if self.current_data:
-            return self.current_data["data"]
+            return self.current_data
         else:
             return None
 
@@ -70,27 +70,21 @@ class DataAggregator(metaclass=Singleton):
         ----------
         end_time
             time of when the collection has finished"""
-        self.data[self.current_run]["end-time"] = end_time
+        self.data[self.current_run].set_end_time(end_time)
         self.last_run = self.current_run
         self.current_data = None
         self.current_run = None
 
-    def new_collection(self, begin_time: float) -> None:
+    def new_collection(self, start_time: float) -> None:
         """Adds a new DataCollection along with a timestamp to the aggregator.
 
         Parameters
         ----------
-        begin_time
+        start_time
             time of the beginning of the collection
             (should be sent by the hpx-dashboard agent)
         """
-        self.data.append(
-            {
-                "begin-time": begin_time,
-                "end-time": None,
-                "data": DataCollection(),
-                "counter-info": None,
-            }
-        )
+        self.data.append(DataCollection())
+        self.data[-1].set_start_time(start_time)
         self.current_run = len(self.data) - 1
-        self.current_data = self.data[self.current_run]
+        self.current_data = self.data[-1]
