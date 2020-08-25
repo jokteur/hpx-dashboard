@@ -16,11 +16,11 @@ from bokeh.layouts import column
 
 from ..data import DataSources
 from ..widgets import empty_placeholder
-from .base import BasePlot, get_colors, get_figure_options
+from .base import BaseElement, get_colors, get_figure_options
 from .raster import ShadedTimeSeries
 
 
-class TimeSeries(BasePlot):
+class TimeSeries(BaseElement):
     """"""
 
     _data_sources = OrderedDict()
@@ -138,7 +138,7 @@ class TimeSeries(BasePlot):
         self._root.children[0] = self._figure
 
 
-# class TimeSeries(BasePlot):
+# class TimeSeries(BaseElement):
 #     """"""
 
 #     _collection = None

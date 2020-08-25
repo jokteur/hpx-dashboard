@@ -16,12 +16,11 @@ import numpy as np
 from bokeh.plotting import Figure
 from bokeh.models import ColumnDataSource, HoverTool
 
-from .base import BasePlot, get_figure_options, get_colors
-from ..data import DataAggregator
+from .base import BaseElement, get_figure_options, get_colors
 from ..utils import format_time
 
 
-class TasksPlot(BasePlot):
+class TasksPlot(BaseElement):
     empty_dict = {"x": [], "y": [], "width": [], "name": [], "color": [], "duration": []}
 
     def __init__(
@@ -35,7 +34,7 @@ class TasksPlot(BasePlot):
         **kwargs,
     ):
         """"""
-        super().__init__(doc, refresh_rate)
+        super().__init__(doc, refresh_rate, collection)
 
         self._locality = locality
         self._window_size = window_size
@@ -45,16 +44,9 @@ class TasksPlot(BasePlot):
         self._workers = {}
         self._last_run = -1
 
-        self.collection = collection
-        if not collection:
-            if DataAggregator().get_current_run():
-                self.collection = DataAggregator().get_current_run()
-            elif DataAggregator().get_last_run():
-                self.collection = DataAggregator().get_last_run()
-
         tmp_list = []
-        if worker == "*" and self.collection:
-            tmp_list = self.collection.get_worker_threads(locality, "default")
+        if worker == "*" and self._collection:
+            tmp_list = self._collection.get_worker_threads(locality, "default")
         elif isinstance(worker, list):
             tmp_list = [worker]
 
@@ -95,12 +87,11 @@ class TasksPlot(BasePlot):
         hovertool.tooltips = "Name: @name, Duration: @duration"
         hovertool.point_policy = "follow_mouse"
 
-        self.layout = figure
-        self.start_update()
+        self._root = figure
 
     def _update_data(self):
         """"""
-        if not self.collection:
+        if not self._collection:
             return
 
         data_dict = deepcopy(self.empty_dict)
@@ -108,13 +99,12 @@ class TasksPlot(BasePlot):
 
         names_list = []
         for worker, index in self._workers.items():
-            data = self.collection.get_task_data(self._locality, worker, index)
+            data = self._collection.get_task_data(self._locality, worker, index)
             if data.ndim == 2:
                 self._workers[worker] += data.shape[0]
                 update = True
 
                 starts = data[:, 1]
-                print(starts[0])
                 names = list(data[:, 0])
                 names_list += names
                 ends = data[:, 2]
@@ -133,26 +123,28 @@ class TasksPlot(BasePlot):
         if update:
             self._data.stream(data_dict, 1000)
 
-    def update(self):
-        # Reset data from newest run
-        if self._last_run != DataAggregator().get_last_run():
-            if DataAggregator().get_current_run():
-                self._last_run = DataAggregator().get_current_run()
-            else:
-                self._last_run = DataAggregator().get_last_run()
+    def set_instance(self, locality, worker):
+        tmp_list = []
+        if worker == "*" and self._collection:
+            tmp_list = self._collection.get_worker_threads(locality, "default")
+        elif isinstance(worker, list):
+            tmp_list = [worker]
 
+        self._workers = {}
+        self._workers.update((key, 0) for key in tmp_list)
+
+    def update(self):
+        super().update()
+        # Reset data if the collection changed
+        if self._reset:
             for worker in self._workers.keys():
                 self._workers[worker] = 0
             self._data.data = deepcopy(self.empty_dict)
-
-        if DataAggregator().get_current_run():
-            self.collection = DataAggregator().get_current_run()
-        elif DataAggregator().get_last_run():
-            self.collection = DataAggregator().get_last_run()
+            self._reset = False
 
         # Update the list of workers
-        if self._worker_opt == "*" and self.collection:
-            tmp_list = self.collection.get_worker_threads(self._locality, "default")
+        if self._worker_opt == "*" and self._collection:
+            tmp_list = self._collection.get_worker_threads(self._locality, "default")
             self._workers.update((key, 0) for key in tmp_list if key not in self._workers)
 
         self._update_data()

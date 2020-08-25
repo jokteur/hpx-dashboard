@@ -1,13 +1,13 @@
 from bokeh.plotting import figure
 
-from .base import BasePlot
+from .base import BaseElement
 from ..data import DataSources, DataAggregator, format_instance
 
 data_aggregator = DataAggregator()
 data_sources = DataSources()
 
 
-class ThreadsPlot(BasePlot):
+class ThreadsPlot(BaseElement):
     def __init__(
         self,
         doc,
@@ -48,7 +48,7 @@ class ThreadsPlot(BasePlot):
             )
 
 
-class Memory(BasePlot):
+class Memory(BaseElement):
     def __init__(
         self, doc, title="Memory usage", locality="0",
     ):

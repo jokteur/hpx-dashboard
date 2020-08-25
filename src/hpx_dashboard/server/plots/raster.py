@@ -9,7 +9,7 @@ import xarray as xr
 import datashader as ds
 import datashader.transfer_functions as tf
 
-from .base import BasePlot, ThrottledEvent, get_figure_options
+from .base import BaseElement, ThrottledEvent, get_figure_options
 
 
 def _is_intersecting(interval1, interval2):
@@ -194,7 +194,7 @@ def get_ranges(data, x, y):
     return x_range, y_range
 
 
-class ShadedTimeSeries(BasePlot):
+class ShadedTimeSeries(BaseElement):
     """"""
 
     # Variable to correctly update the range if necessary

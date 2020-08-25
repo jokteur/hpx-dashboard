@@ -12,30 +12,18 @@
 
 from bokeh.models.widgets import Div
 
+from ..plots import BaseElement
+
 
 def empty_placeholder():
     return Div(text=" ")
 
 
-class BaseWidget:
+class BaseWidget(BaseElement):
     """"""
 
-    instance_num = 0
-
-    def __init__(self, doc, callback, refresh_rate=500, **kwargs):
+    def __init__(self, doc, callback=None, refresh_rate=500, collection=None, **kwargs):
         """"""
-        BaseWidget.instance_num += 1
-        self._doc = doc
-        self._widget = empty_placeholder()
-        self._refresh_rate = refresh_rate
+        super().__init__(doc, refresh_rate, collection)
+
         self._callback = callback
-        self._callback_object = doc.add_periodic_callback(self._update_widget, refresh_rate)
-
-    def __del__(self):
-        self._doc.remove_periodic_callback(self._callback_object)
-
-    def widget(self):
-        return self._widget
-
-    def _update_widget(self):
-        pass

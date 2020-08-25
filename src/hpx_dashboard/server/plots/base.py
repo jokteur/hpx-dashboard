@@ -19,6 +19,8 @@ import time
 from bokeh.plotting import Figure
 from bokeh import palettes
 
+from ..data import DataAggregator
+
 
 def get_figure_options():
     """"""
@@ -66,29 +68,58 @@ def get_colors(palette, names, order_list=True, shuffle=True):
         ]
 
 
-class BasePlot(metaclass=ABCMeta):
+class BaseElement(metaclass=ABCMeta):
     """"""
 
-    def __init__(self, doc, refresh_rate=500):
+    instance_num = 0
+
+    def __init__(self, doc, refresh_rate=500, collection=None):
         """"""
+        BaseElement.instance_num += 1
         self._root = None
         self._buffer = None
         self._refresh_rate = refresh_rate
         self._doc = doc
+        self._reset = False
+        self._last_collection = None
+
+        self.set_collection(collection)
+
+        self._callback_object = doc.add_periodic_callback(self.update, refresh_rate)
 
     def __del__(self):
         self._doc.remove_periodic_callback(self._callback_object)
 
-    def start_update(self):
-        self._doc.add_periodic_callback(self.update, self._refresh_rate)
+    def set_collection(self, collection):
+        self._collection = collection
+        if not collection:
+            self._select_most_recent_collection = True
+            if DataAggregator().get_current_run():
+                self._collection = DataAggregator().get_current_run()
+            elif DataAggregator().get_last_run():
+                self._collection = DataAggregator().get_last_run()
+
+            self._last_collection = self._collection
+        else:
+            self._select_most_recent_collection = False
+
+        self._reset = True
 
     def stop_update(self):
         self._doc.remove_periodic_callback(self.update)
 
     def update(self):
-        pass
+        if (
+            self._select_most_recent_collection
+            and self._last_collection != DataAggregator().get_last_run()
+        ):
+            if DataAggregator().get_current_run():
+                self._collection = DataAggregator().get_current_run()
+            elif DataAggregator().get_last_run():
+                self._collection = DataAggregator().get_last_run()
+            self._reset = True
 
-    def plot(self):
+    def layout(self):
         return self._root
 
 
