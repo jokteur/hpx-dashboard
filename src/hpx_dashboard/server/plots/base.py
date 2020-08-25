@@ -90,15 +90,17 @@ class BaseElement(metaclass=ABCMeta):
     def __del__(self):
         self._doc.remove_periodic_callback(self._callback_object)
 
+    def _select_last_collection(self):
+        if DataAggregator().get_current_run():
+            return DataAggregator().get_current_run()
+        elif DataAggregator().get_last_run():
+            return DataAggregator().get_last_run()
+
     def set_collection(self, collection):
         self._collection = collection
         if not collection:
             self._select_most_recent_collection = True
-            if DataAggregator().get_current_run():
-                self._collection = DataAggregator().get_current_run()
-            elif DataAggregator().get_last_run():
-                self._collection = DataAggregator().get_last_run()
-
+            self._collection = self._select_last_collection()
             self._last_collection = self._collection
         else:
             self._select_most_recent_collection = False
@@ -113,10 +115,7 @@ class BaseElement(metaclass=ABCMeta):
             self._select_most_recent_collection
             and self._last_collection != DataAggregator().get_last_run()
         ):
-            if DataAggregator().get_current_run():
-                self._collection = DataAggregator().get_current_run()
-            elif DataAggregator().get_last_run():
-                self._collection = DataAggregator().get_last_run()
+            self._collection = self._select_last_collection()
             self._reset = True
 
     def layout(self):

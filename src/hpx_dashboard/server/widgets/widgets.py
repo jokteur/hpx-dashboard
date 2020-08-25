@@ -41,27 +41,43 @@ class DataCollectionWidget(BaseWidget):
             arguments for the bokeh Select widget
         """
         super().__init__(doc, callback, refresh_rate=refresh_rate, **kwargs)
-        self._collection = None
+        self._selected_collection = None
         self._select = DataCollectionSelect(doc, self._set_collection, refresh_rate=refresh_rate)
-        self._div = Div(text="<b>No run selected</b>")
+        self._div = Div(text="<b>No data available</b>")
         self._root = column(self._select.layout(), self._div)
 
     def _set_collection(self, collection):
         """"""
-        self._collection = collection
+        self._selected_collection = collection
         self._callback(collection)
-        self._update_widget()
+        self.update()
 
-    def _update_widget(self):
-        if self._collection:
+    def update(self):
+        super().update()
+
+        collection = None
+        most_recent_flag = False
+        if not self._selected_collection:
+            most_recent_flag = True
+            collection = self._select_last_collection()
+        else:
+            collection = self._selected_collection
+
+        if collection:
             collection_list = DataAggregator().data
-            index = collection_list.index(self._collection)
+            index = collection_list.index(collection)
             collection = collection_list[index]
 
             # Title of the run
             title = f"Run #{index}"
-            if DataAggregator().get_current_run() == self._collection:
-                title += " (live)"
+
+            if DataAggregator().get_current_run() == collection:
+                if most_recent_flag:
+                    title += " (most recent, live)"
+                else:
+                    title += " (live)"
+            elif most_recent_flag:
+                title += " (most recent)"
 
             # Timings of the run
             begin_time = datetime.fromtimestamp(int(collection.start_time))
