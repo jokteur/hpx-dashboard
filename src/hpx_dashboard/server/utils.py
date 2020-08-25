@@ -1,3 +1,15 @@
+class Notifier:
+    def __init__(self):
+        self.subscribers = []
+
+    def notify(self, *args):
+        for sub in self.subscribers:
+            sub(*args)
+
+    def subscribe(self, fct):
+        self.subscribers.append(fct)
+
+
 def format_time(t):
     """Format seconds into a human readable form.
     """

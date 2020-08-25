@@ -48,6 +48,11 @@
     height: 100%;
   }
 
+  .run_title {
+    margin-bottom: -15px;
+    padding-bottom:0px;
+    margin-left:20px;
+  }
   .run_summary {
     border: 1px dashed black;
     border-radius: 5%;

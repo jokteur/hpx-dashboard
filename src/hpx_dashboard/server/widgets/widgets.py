@@ -43,8 +43,8 @@ class DataCollectionWidget(BaseWidget):
         super().__init__(doc, callback, refresh_rate=refresh_rate, **kwargs)
         self._collection = None
         self._select = DataCollectionSelect(doc, self._set_collection, refresh_rate=refresh_rate)
-        self._widget = column(self._select.widget(), Div(text="<b>No data</b>"))
-        self._widget_text = ""
+        self._div = Div(text="<b>No run selected</b>")
+        self._root = column(self._select.layout(), self._div)
 
     def _set_collection(self, collection):
         """"""
@@ -87,13 +87,12 @@ class DataCollectionWidget(BaseWidget):
             else:
                 instance_info += f"{num_workers} threads per locality"
 
-            text = f"""<span class="run_summary"><b>{title}</b><br />
+            text = f"""<span class="run_summary"><h3 class="run_title">{title}</h3><br />
             {time_info}<br />
             {instance_info}</span>"""
 
-            if text != self._widget_text:
-                self._widget.children[1] = Div(text=text)
-                self._widget_text = text
+            if text != self._div.text:
+                self._div.text = text
 
 
 class PlotGeneratorWidget(BaseWidget):
@@ -128,13 +127,13 @@ class PlotGeneratorWidget(BaseWidget):
         self.selected_collection = None
         self.selected_instance = None
 
-        self._widget = column(self.add_button, empty_placeholder(), self.plot.get_plot())
+        self._root = column(self.add_button, empty_placeholder(), self.plot.get_plot())
 
     def _selected(self, out):
         print(out)
 
     def _add_button_click(self):
-        self._widget.children[1] = column(SelectCounter(self._doc, self._selected), self.ok_button)
+        self._root.children[1] = column(SelectCounter(self._doc, self._selected), self.ok_button)
 
     def _ok_button_click(self):
         pass

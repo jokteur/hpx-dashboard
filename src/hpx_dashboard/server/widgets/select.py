@@ -41,15 +41,16 @@ class DataCollectionSelect(BaseWidget):
         self._defaults_opts.update((key, value) for key, value in kwargs.items())
 
         super().__init__(doc, callback, refresh_rate=refresh_rate)
-        self._widget = Select(
+        self._root = Select(
+            title="Select run",
             name=f"Select run_{BaseWidget.instance_num}",
             options=self._generate_options(),
             **self._defaults_opts,
         )
-        self._widget.on_change("value", self._on_change_select)
+        self._root.on_change("value", self._on_change_select)
 
     def _generate_options(self):
-        data_collection_list = ["Select run"]
+        data_collection_list = ["Most recent"]
         for i, run in reversed(list(enumerate(DataAggregator().data))):
 
             if i == DataAggregator().current_run:
@@ -61,7 +62,7 @@ class DataCollectionSelect(BaseWidget):
 
     # Notify the user for a possible change in selection
     def _on_change_select(self, attr, old, new):
-        if new != "Select run":
+        if new != "Most recent":
             run_id = int(new.split()[1])
             data = DataAggregator().data
             self._callback(data[run_id])
@@ -69,10 +70,10 @@ class DataCollectionSelect(BaseWidget):
             self._callback(None)
 
     # Update the Select in case there are new runs
-    def _update_widget(self):
+    def update(self):
         options = self._generate_options()
-        if options != self._widget.options:
-            self._widget.options = self._generate_options()
+        if options != self._root.options:
+            self._root.options = self._generate_options()
 
 
 class SelectCounterName(BaseWidget):
@@ -125,7 +126,7 @@ class SelectCounterName(BaseWidget):
         self.select.on_change("value", self._on_change)
         self.autocomplete.on_change("value", self._on_change)
 
-        self._widget = row(self.select, self.autocomplete)
+        self._root = row(self.select, self.autocomplete)
 
     def _generate_options(self):
         if self.collection:
@@ -148,8 +149,8 @@ class SelectCounterName(BaseWidget):
                 self._callback(None)
 
     # Update the Select and autocomplete in case there are new runs
-    def _update_widget(self):
-        self.select.options = ["Select name"] + self._generate_options()
+    def update(self):
+        self.select.options = ["Select name", "Most recent"] + self._generate_options()
         self.autocomplete.completions = self._generate_options()
 
 
@@ -203,7 +204,7 @@ class SelectInstance(BaseWidget):
         self.select_locality.on_change("value", self._on_change_locality)
         self.select_instance.on_change("value", self._on_change_instance)
 
-        self._widget = row(self.select_locality, empty_placeholder())
+        self._root = row(self.select_locality, empty_placeholder())
 
     def _generate_localities(self):
         prelude = ["Select locality"]
@@ -229,10 +230,10 @@ class SelectInstance(BaseWidget):
     def _on_change_locality(self, attr, old, new):
         if new != "Select locality":
             self.select_instance.options = self._generate_instances(new)
-            self._widget.children[1] = self.select_instance
+            self._root.children[1] = self.select_instance
         else:
             self.select_instance.value = "Select instance"
-            self._widget.children[1] = empty_placeholder()
+            self._root.children[1] = empty_placeholder()
 
     # Notify the user for a possible change in selection
     def _on_change_instance(self, attr, old, new):
@@ -249,7 +250,7 @@ class SelectInstance(BaseWidget):
         else:
             self._callback(None)
 
-    def _update_widget(self):
+    def update(self):
         self.select_instance.options = self._generate_instances(self.select_locality.value)
         self.select_locality.options = self._generate_localities()
 
@@ -281,7 +282,7 @@ class SelectCounter(BaseWidget):
         )
         self.select_counter_name = None
         self.select_instance = None
-        self._widget = column(self.select_run.widget, empty_placeholder(), empty_placeholder())
+        self._root = column(self.select_run.widget, empty_placeholder(), empty_placeholder())
 
     def _update_run(self, collection):
         if collection:
@@ -301,10 +302,10 @@ class SelectCounter(BaseWidget):
                 select_locality_kwargs={"title": "Select the locality"},
                 select_instance_kwargs={"title": "Select the instance"},
             )
-            self._widget.children[1] = self.select_counter_name.widget
-            self._widget.children[2] = self.select_instance.widget
+            self._root.children[1] = self.select_counter_name.widget
+            self._root.children[2] = self.select_instance.widget
         else:
             self.select_counter_name = None
             self.select_instance = None
-            self._widget.children[1] = empty_placeholder()
-            self._widget.children[2] = empty_placeholder()
+            self._root.children[1] = empty_placeholder()
+            self._root.children[2] = empty_placeholder()
