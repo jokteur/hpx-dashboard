@@ -13,14 +13,14 @@
 
 import argparse
 import sys
-import threading
 
-from bokeh.server.server import Server
+# import threading
+
 from tornado.ioloop import IOLoop
 
 from ..common.logger import Logger
 from .tcp_listener import TCP_Server
-from .app import app
+from .app import bk_server
 
 
 def args_parse(argv):
@@ -48,7 +48,6 @@ def args_parse(argv):
 
 
 def _threaded_server(port):
-
     TCP_Server().listen(port)
     IOLoop.instance().start()
 
@@ -59,16 +58,17 @@ def server(argv):
     logger = Logger()
     opt = args_parse(sys.argv[1:])
 
-    server = Server({"/": app}, io_loop=IOLoop().current(), port=int(opt.bokeh_port))
+    server = bk_server(io_loop=IOLoop().current(), port=int(opt.bokeh_port))
     server.start()
 
-    tcp_thread = threading.Thread(target=_threaded_server, args=(opt.listen_port,))
-    tcp_thread.start()
+    TCP_Server().listen(opt.listen_port)
+    # tcp_thread = threading.Thread(target=_threaded_server, args=(opt.listen_port,))
+    # tcp_thread.start()
 
     logger.info(f"Bokeh server started on http://localhost:{opt.bokeh_port}")
     server.io_loop.start()
 
-    tcp_thread.join()
+    # tcp_thread.join()
 
 
 def main():

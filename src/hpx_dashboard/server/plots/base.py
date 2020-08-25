@@ -76,6 +76,9 @@ class BasePlot(metaclass=ABCMeta):
         self._refresh_rate = refresh_rate
         self._doc = doc
 
+    def __del__(self):
+        self._doc.remove_periodic_callback(self._callback_object)
+
     def start_update(self):
         self._doc.add_periodic_callback(self.update, self._refresh_rate)
 

@@ -9,19 +9,20 @@
 
 """
 """
+import functools
 
-from bokeh.layouts import column
+from bokeh.server.server import Server
 
-# from .data import format_instance
-# from .plots import TimeSeries
-from .widgets.widgets import DataCollectionWidget
+from .components import standalone_doc
+from .http.statics import routes
+
+applications = {
+    "/": standalone_doc,
+}
+
+template_variables = {}
 
 
-def app(doc):
-    # put the button and plot in a layout and add to the document
-    widget = DataCollectionWidget(doc, lambda x: x)
-    # p = plot.plot()
-    p = widget.widget()
-
-    doc.add_root(column(p))
-    return p
+def bk_server(prefix="/", **kwargs):
+    apps = {k: functools.partial(v, template_variables) for k, v in applications.items()}
+    return Server(apps, extra_patterns=[] + routes, **kwargs)
