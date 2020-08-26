@@ -140,6 +140,7 @@ class TasksPlot(BaseElement):
         update = False
 
         filtered_names_list = []
+
         for worker, index in self._workers.items():
             data = self._collection.get_task_data(self._locality, worker, index)
             if data.ndim == 2:
