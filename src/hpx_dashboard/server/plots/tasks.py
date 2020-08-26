@@ -12,12 +12,34 @@
 
 from copy import deepcopy
 
+import toolz
 import numpy as np
 from bokeh.plotting import Figure
-from bokeh.models import ColumnDataSource, HoverTool
+from bokeh.layouts import column
+from bokeh.models import ColumnDataSource, HoverTool, MultiChoice
 
 from .base import BaseElement, get_figure_options, get_colors
+from ..widgets import BaseWidget
 from ..utils import format_time
+
+
+class FilterWidget(BaseWidget):
+    def __init__(self, doc, callback, refresh_rate=500, collection=None, **kwargs):
+        super().__init__(
+            doc, callback=callback, refresh_rate=refresh_rate, collection=collection, **kwargs
+        )
+
+        self._choices = []
+        self._root = MultiChoice(options=self._choices, title="Filter tasks")
+        self._root.on_change("value", self._on_change)
+
+    def _on_change(self, attr, old, new):
+        self._callback(new)
+
+    def set_choices(self, choices):
+        if choices != self._choices:
+            self._choices = choices
+            self._root.options = list(self._choices)
 
 
 class TasksPlot(BaseElement):
@@ -30,7 +52,7 @@ class TasksPlot(BaseElement):
         window_size=10,
         worker="*",
         collection=None,
-        refresh_rate=200,
+        refresh_rate=500,
         **kwargs,
     ):
         """"""
@@ -44,7 +66,7 @@ class TasksPlot(BaseElement):
         self._workers = {}
         self._last_run = -1
 
-        self._task_names = []
+        self._task_names = set()
         self._filter_list = []
 
         tmp_list = []
@@ -93,7 +115,9 @@ class TasksPlot(BaseElement):
         hovertool.tooltips = "Name: @name, Duration: @duration"
         hovertool.point_policy = "follow_mouse"
 
-        self._root = figure
+        self._filter_choice = FilterWidget(doc, self.set_filter_list, collection=collection)
+
+        self._root = column(figure, self._filter_choice.layout())
 
     def set_filter_list(self, filters):
         """Sets a filter to show only particular tasks"""
@@ -102,8 +126,10 @@ class TasksPlot(BaseElement):
         elif isinstance(filters, list):
             self._filter_list = filters
 
+        self._reset = True
+
     def get_task_names(self):
-        return self._task_names
+        return list(self._task_names)
 
     def _update_data(self):
         """"""
@@ -113,7 +139,7 @@ class TasksPlot(BaseElement):
         data_dict = deepcopy(self.empty_dict)
         update = False
 
-        names_list = []
+        filtered_names_list = []
         for worker, index in self._workers.items():
             data = self._collection.get_task_data(self._locality, worker, index)
             if data.ndim == 2:
@@ -122,30 +148,33 @@ class TasksPlot(BaseElement):
 
                 names = data[:, 0]
 
-                filtered_indices = np.arange(0, len(names) - 1)
+                idx = list(range(len(names)))
                 if self._filter_list:
-                    filtered_indices = np.array(
-                        list(filter(lambda x: x[1] in self._filter_list, enumerate(list(names))))
+                    idx = list(
+                        toolz.map(
+                            toolz.first,
+                            toolz.filter(lambda x: x[1] in self._filter_list, enumerate(names)),
+                        )
                     )
 
-                print(filtered_indices)
-                filtered_names = list(names[filtered_indices])
+                self._task_names.update(names)
+                filtered_names = list(names[idx])
 
-                starts = data[:, 1][filtered_indices]
-                names_list += filtered_names
-                ends = data[:, 2][filtered_indices]
+                starts = data[:, 1][idx]
+                filtered_names_list += filtered_names
+                ends = data[:, 2][idx]
 
                 width = ends - starts
                 left = np.min(starts)
 
                 data_dict["width"] += list(width)
                 data_dict["name"] += filtered_names
-                data_dict["duration"] += map(format_time, list(width))
+                data_dict["duration"] += map(format_time, width)
                 data_dict["x"] += list(width / 2 + starts - left)
                 data_dict["y"] += list(int(worker) * np.ones(len(width)))
 
-        self._task_names = list(set(names_list)).sort()
-        data_dict["color"] = get_colors("Category20", names_list, False)
+        self._filter_choice.set_choices(self._task_names)
+        data_dict["color"] = get_colors("Category20", filtered_names_list, False)
 
         if update:
             self._data.stream(data_dict)
@@ -167,9 +196,11 @@ class TasksPlot(BaseElement):
         super().update()
         # Reset data if the collection changed
         if self._reset:
+            print(self._reset, "reset")
             for worker in self._workers.keys():
                 self._workers[worker] = 0
             self._data.data = deepcopy(self.empty_dict)
+            self._task_names = set()
             self._reset = False
 
         # Update the list of workers

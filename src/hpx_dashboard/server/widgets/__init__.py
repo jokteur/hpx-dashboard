@@ -11,7 +11,7 @@
 """
 """
 
-from .base import empty_placeholder
+from .base import empty_placeholder, BaseWidget
 from .widgets import DataCollectionWidget
 
-__all__ = ["empty_placeholder", "DataCollectionWidget"]
+__all__ = ["empty_placeholder", "DataCollectionWidget", "BaseWidget"]

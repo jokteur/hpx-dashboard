@@ -81,7 +81,6 @@ class BaseElement(metaclass=ABCMeta):
         self._refresh_rate = refresh_rate
         self._doc = doc
         self._reset = False
-        self._last_collection = None
 
         self.set_collection(collection)
 
@@ -101,7 +100,6 @@ class BaseElement(metaclass=ABCMeta):
         if not collection:
             self._select_most_recent_collection = True
             self._collection = self._select_last_collection()
-            self._last_collection = self._collection
         else:
             self._select_most_recent_collection = False
 
@@ -113,7 +111,7 @@ class BaseElement(metaclass=ABCMeta):
     def update(self):
         if (
             self._select_most_recent_collection
-            and self._last_collection != DataAggregator().get_last_run()
+            and self._collection != DataAggregator().get_last_run()
         ):
             self._collection = self._select_last_collection()
             self._reset = True
