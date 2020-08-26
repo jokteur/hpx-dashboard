@@ -38,6 +38,7 @@ def threads(doc, notifier):
 def tasks(doc, notifier):
     """Defines the tab for the task plot"""
     task_plot = TasksPlot(doc)
+    task_plot.set_filter_list(["hpx_main"])
     notifier.subscribe(task_plot.set_collection)
     return task_plot.layout()
 

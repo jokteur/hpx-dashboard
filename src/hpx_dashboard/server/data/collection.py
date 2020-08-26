@@ -63,6 +63,7 @@ class DataCollection:
         self.end_time = None
         self.counter_info = {}
         self.data = {}
+        # Task data is also used to identify all available instances
         self.task_data = {}
 
     def _add_instance_name(
@@ -228,12 +229,12 @@ class DataCollection:
         if locality in self.task_data:
             for pool in self.task_data[locality].keys():
                 if pool != "total" and pool:
-                    for _ in self.task_data[locality][pool].keys():
-                        num += 1
-
+                    worker_list = [int(idx) for idx in self.task_data[locality][pool].keys()]
+                    if worker_list:
+                        num += max(worker_list) + 1
         return num
 
-    def get_worker_threads(self, locality, pool):
+    def get_worker_threads(self, locality, pool="default"):
         """Returns the list of worker threads in a particular locality and pool"""
         if locality in self.task_data:
             if pool in self.task_data[locality]:

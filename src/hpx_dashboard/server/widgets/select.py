@@ -76,6 +76,62 @@ class DataCollectionSelect(BaseWidget):
             self._root.options = self._generate_options()
 
 
+class SelectLocality(BaseWidget):
+    """Produces a widget for selecting the locality of a particular instance"""
+
+    def __init__(self, doc, callback, collection, refresh_rate=500, **kwargs):
+        """Produces a widget that shows all the available localities in a particular DataCollection.
+
+        Arguments
+        ---------
+        doc : Bokeh Document
+            bokeh document for auto-updating the widget
+        callback : function(locality: str)
+            callback for notifying when the user selects a certain locality
+        refresh_rate : int
+            refresh rate at which the Select refreshes based on the data collection
+        **kwargs
+            arguments for the bokeh Select widget
+        """
+        super().__init__(doc, callback, refresh_rate=refresh_rate, collection=collection)
+        self._previous_change = None
+
+        self._defaults_opts = dict(width=100)
+        self._defaults_opts.update((key, value) for key, value in kwargs.items())
+
+        self._select = Select(
+            name=f"Select locality{BaseWidget.instance_num}",
+            options=["Select locality"] + self._generate_options(),
+            title="Select locality",
+            **self._defaults_opts,
+        )
+        self._select.on_change("value", self._on_change)
+
+        self._root = self._select
+
+    def _generate_options(self):
+        if self.collection:
+            return self.collection.get_counter_names()
+        else:
+            return []
+
+    # Notify the user for a possible change in selection
+    def _on_change(self, attr, old, new):
+        if self._previous_change != new:
+            self._previous_change = new
+            if new != "Select locality":
+                self._callback(new)
+                self._select.value = new
+            else:
+                self._previous_change = None
+                self._select.value = "Select locality"
+                self._callback(None)
+
+    # Update the Select and autocomplete in case there are new runs
+    def update(self):
+        self._select.options = ["Select locality"] + self._generate_options()
+
+
 class SelectCounterName(BaseWidget):
     """Produces a widget that shows all the current and past data collection instances
     in the form of a Select."""

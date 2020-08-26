@@ -44,10 +44,15 @@ class TasksPlot(BaseElement):
         self._workers = {}
         self._last_run = -1
 
+        self._task_names = []
+        self._filter_list = []
+
         tmp_list = []
         if worker == "*" and self._collection:
             tmp_list = self._collection.get_worker_threads(locality, "default")
         elif isinstance(worker, list):
+            tmp_list = worker
+        elif isinstance(worker, str):
             tmp_list = [worker]
 
         self._workers.update((key, 0) for key in tmp_list)
@@ -58,7 +63,8 @@ class TasksPlot(BaseElement):
             tools="hover,save,reset,xwheel_zoom,xpan",
             toolbar_location="above",
             plot_width=800,
-            plot_height=400,
+            plot_height=600,
+            background_fill_color="black",
         )
 
         defaults_opts.update(
@@ -89,6 +95,16 @@ class TasksPlot(BaseElement):
 
         self._root = figure
 
+    def set_filter_list(self, filters):
+        """Sets a filter to show only particular tasks"""
+        if isinstance(filters, str):
+            self._filter_list = [filters]
+        elif isinstance(filters, list):
+            self._filter_list = filters
+
+    def get_task_names(self):
+        return self._task_names
+
     def _update_data(self):
         """"""
         if not self._collection:
@@ -104,34 +120,48 @@ class TasksPlot(BaseElement):
                 self._workers[worker] += data.shape[0]
                 update = True
 
-                starts = data[:, 1]
-                names = list(data[:, 0])
-                names_list += names
-                ends = data[:, 2]
+                names = data[:, 0]
+
+                filtered_indices = np.arange(0, len(names) - 1)
+                if self._filter_list:
+                    filtered_indices = np.array(
+                        list(filter(lambda x: x[1] in self._filter_list, enumerate(list(names))))
+                    )
+
+                print(filtered_indices)
+                filtered_names = list(names[filtered_indices])
+
+                starts = data[:, 1][filtered_indices]
+                names_list += filtered_names
+                ends = data[:, 2][filtered_indices]
 
                 width = ends - starts
                 left = np.min(starts)
 
                 data_dict["width"] += list(width)
-                data_dict["name"] += names
+                data_dict["name"] += filtered_names
                 data_dict["duration"] += map(format_time, list(width))
                 data_dict["x"] += list(width / 2 + starts - left)
                 data_dict["y"] += list(int(worker) * np.ones(len(width)))
 
-        data_dict["color"] = get_colors("RdYlGn", names_list)
+        self._task_names = list(set(names_list)).sort()
+        data_dict["color"] = get_colors("Category20", names_list, False)
 
         if update:
-            self._data.stream(data_dict, 1000)
+            self._data.stream(data_dict)
 
     def set_instance(self, locality, worker):
         tmp_list = []
         if worker == "*" and self._collection:
             tmp_list = self._collection.get_worker_threads(locality, "default")
         elif isinstance(worker, list):
+            tmp_list = worker
+        elif isinstance(worker, str):
             tmp_list = [worker]
 
         self._workers = {}
         self._workers.update((key, 0) for key in tmp_list)
+        self._update_data()
 
     def update(self):
         super().update()
