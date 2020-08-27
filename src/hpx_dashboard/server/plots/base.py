@@ -26,6 +26,8 @@ def get_figure_options():
     """"""
     o = Figure.properties()
     o.add("tools")
+    o.add("x_axis_label")
+    o.add("y_axis_label")
     return o
 
 

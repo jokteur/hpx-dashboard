@@ -19,7 +19,8 @@ from bokeh.themes import Theme
 from jinja2 import Environment, FileSystemLoader
 
 from .utils import Notifier
-from .plots import TasksPlot
+from .data import format_instance
+from .plots import TasksPlot, TimeSeries
 from .widgets import DataCollectionWidget
 
 env = Environment(
@@ -28,11 +29,23 @@ env = Environment(
 BOKEH_THEME = Theme(os.path.join(os.path.dirname(__file__), "http", "bokeh_theme.yaml"))
 
 
-def threads(doc, notifier):
+def scheduler(doc, notifier):
     """Defines the tab for the task plot"""
-    task_plot = TasksPlot(doc)
-    notifier.subscribe(task_plot.set_collection)
-    return task_plot.plot()
+    scheduler_plot = TimeSeries(doc, title="Scheduler utilization", y_axis_label="Utilization (%)")
+    counter = "scheduler/utilization/instantaneous"
+    instance = format_instance("0")
+    scheduler_plot.add_line(
+        counter, instance, pretty_name="Scheduler utilization",
+    )
+
+    def _reset_lines(collection):
+        nonlocal scheduler_plot
+
+        scheduler_plot.remove_all()
+        scheduler_plot.add_line(counter, instance, collection)
+
+    notifier.subscribe(_reset_lines)
+    return scheduler_plot.layout()
 
 
 def tasks(doc, notifier):
@@ -51,7 +64,12 @@ def standalone_doc(extra, doc):
     task_plot = tasks(doc, notifier)
     task_tab = Panel(child=task_plot, title="Tasks plot")
 
-    doc.add_root(row(Tabs(tabs=[task_tab]), widget.layout(), sizing_mode="scale_width",))
+    scheduler_plot = scheduler(doc, notifier)
+    scheduler_tab = Panel(child=scheduler_plot, title="Scheduler utilization")
+
+    doc.add_root(
+        row(Tabs(tabs=[scheduler_tab, task_tab]), widget.layout(), sizing_mode="scale_width",)
+    )
 
     doc.template = env.get_template("normal.html")
     doc.template_variables.update(extra)

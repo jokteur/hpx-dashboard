@@ -46,9 +46,10 @@ class TimeSeries(BaseElement):
 
         self._is_shaded = shade
         self._root = column(empty_placeholder())
-        self.start_update()
 
-        self._defaults_opts = dict(plot_width=800, plot_height=400, title="")
+        self._defaults_opts = dict(
+            plot_width=800, plot_height=400, title="", x_axis_label="Time (s)"
+        )
         self._defaults_opts.update(
             (key, value) for key, value in kwargs.items() if key in get_figure_options()
         )

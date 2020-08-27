@@ -45,12 +45,12 @@ class _NumpyArrayList:
         self.size += 1
 
 
-def format_instance(locality_id, pool="default", thread_id=None, is_total=True):
+def format_instance(locality_id, pool=None, thread_id=None, is_total=True):
     """"""
     if is_total:
         return str(locality_id)
     else:
-        return (str(locality_id), str(pool), str(thread_id))
+        return (str(locality_id), pool, str(thread_id))
 
 
 class DataCollection:
@@ -66,9 +66,7 @@ class DataCollection:
         # Task data is also used to identify all available instances
         self.task_data = {}
 
-    def _add_instance_name(
-        self, locality_id, pool="default", thread_id=None, is_total=True
-    ) -> None:
+    def _add_instance_name(self, locality_id, pool=None, thread_id=None, is_total=True) -> None:
         """Adds the instance name to the list of instance names stored in the class."""
         if not locality_id:
             return
@@ -101,8 +99,11 @@ class DataCollection:
             is_total = True
         else:
             if len(instance_split) == 2:
-                pool = "default"
+                pool = None
                 thread_id = instance_split[1].split("#")[1]
+            elif "total" in instance_split[2]:
+                pool = None
+                is_total = True
             else:
                 pool = instance_split[1].split("#")[1]
                 thread_id = instance_split[2].split("#")[1]
@@ -112,7 +113,7 @@ class DataCollection:
     def add_task_data(self, locality, thread, name, begin, end):
         """"""
         self._add_instance_name(locality, thread_id=thread, is_total=False)
-        self.task_data[locality]["default"][thread].append([name, float(begin), float(end)])
+        self.task_data[locality][None][thread].append([name, float(begin), float(end)])
 
     def add_line(
         self,
@@ -182,16 +183,16 @@ class DataCollection:
         if locality not in self.task_data:
             return np.array([])
 
-        if "default" not in self.task_data[locality]:
+        if None not in self.task_data[locality]:
             return np.array([])
 
-        if worker not in self.task_data[locality]["default"]:
+        if worker not in self.task_data[locality][None]:
             return np.array([])
 
-        if index >= len(self.task_data[locality]["default"][worker]):
+        if index >= len(self.task_data[locality][None][worker]):
             return np.array([])
         else:
-            return np.array(self.task_data[locality]["default"][worker][index:], dtype="O")
+            return np.array(self.task_data[locality][None][worker][index:], dtype="O")
 
     def get_data(self, fullname: str, instance_name: tuple, index=0):
         """"""
@@ -234,7 +235,7 @@ class DataCollection:
                         num += max(worker_list) + 1
         return num
 
-    def get_worker_threads(self, locality, pool="default"):
+    def get_worker_threads(self, locality, pool=None):
         """Returns the list of worker threads in a particular locality and pool"""
         if locality in self.task_data:
             if pool in self.task_data[locality]:

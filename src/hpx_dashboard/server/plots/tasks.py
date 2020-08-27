@@ -71,7 +71,7 @@ class TasksPlot(BaseElement):
 
         tmp_list = []
         if worker == "*" and self._collection:
-            tmp_list = self._collection.get_worker_threads(locality, "default")
+            tmp_list = self._collection.get_worker_threads(locality)
         elif isinstance(worker, list):
             tmp_list = worker
         elif isinstance(worker, str):
@@ -183,7 +183,7 @@ class TasksPlot(BaseElement):
     def set_instance(self, locality, worker):
         tmp_list = []
         if worker == "*" and self._collection:
-            tmp_list = self._collection.get_worker_threads(locality, "default")
+            tmp_list = self._collection.get_worker_threads(locality)
         elif isinstance(worker, list):
             tmp_list = worker
         elif isinstance(worker, str):
@@ -197,7 +197,6 @@ class TasksPlot(BaseElement):
         super().update()
         # Reset data if the collection changed
         if self._reset:
-            print(self._reset, "reset")
             for worker in self._workers.keys():
                 self._workers[worker] = 0
             self._data.data = deepcopy(self.empty_dict)
@@ -206,7 +205,7 @@ class TasksPlot(BaseElement):
 
         # Update the list of workers
         if self._worker_opt == "*" and self._collection:
-            tmp_list = self._collection.get_worker_threads(self._locality, "default")
+            tmp_list = self._collection.get_worker_threads(self._locality)
             self._workers.update((key, 0) for key in tmp_list if key not in self._workers)
 
         self._update_data()
