@@ -133,7 +133,6 @@ class SelectCustomLine(BaseWidget):
             self._root.children[2].children[5] = row(self._pool, self._worker_id)
         else:
             self._root.children[2].children[5] = empty_placeholder()
-        print("Change _is_total")
 
     def _set_collection(self, collection):
         self._selected_collection = collection

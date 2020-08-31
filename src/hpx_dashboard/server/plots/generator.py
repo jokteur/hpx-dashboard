@@ -59,15 +59,15 @@ class TimeSeries(BaseElement):
 
     def add_line(self, countername, instance, collection=None, pretty_name=None):
         """"""
-        key = (countername, instance, collection)
+        key = (countername, instance, collection, pretty_name)
 
         if not pretty_name:
             pretty_name = f"{countername};{instance};{collection}"
 
         ds = DataSources().get_data(self._doc, countername, instance, collection)
         self._data_sources[key] = ds
-        self._names[key] = pretty_name
-        self._colors = get_colors("Category20", list(self._names.values()))
+        names = [name for _, _, _, name in self._data_sources.keys()]
+        self._colors = get_colors("Category20", names)
 
         DataSources().listen_to(self._set_update, self._doc, countername, instance, collection)
 
@@ -77,19 +77,18 @@ class TimeSeries(BaseElement):
             self._make_figure()
             self._rebuild_figure = False
 
-    def remove_line(self, countername, instance, collection=None):
+    def remove_line(self, countername, instance, collection=None, pretty_name=None):
         """"""
         # TODO: does not update the plot correctly right now
-        if (countername, instance, collection) in self._data_sources:
-            del self._data_sources[(countername, instance, collection)]
-            del self._names[(countername, instance, collection)]
-            del self._glyphs[(countername, instance, collection)]
+        key = (countername, instance, collection, pretty_name)
+        if key in self._data_sources:
+            del self._data_sources[key]
+            del self._glyphs[key]
         self._make_figure()
 
     def remove_all(self):
         """"""
         self._data_sources.clear()
-        self._names.clear()
         self._glyphs.clear()
         self._make_figure()
 
@@ -117,7 +116,8 @@ class TimeSeries(BaseElement):
 
     def _build_legend(self):
         legend_items = []
-        for i, (key, name) in enumerate(self._names.items()):
+        for i, key in enumerate(self._glyphs.keys()):
+            _, _, _, name = key
             legend_items.append(LegendItem(label=name, renderers=[self._glyphs[key]], index=i))
 
         self._figure.add_layout(
@@ -142,7 +142,7 @@ class TimeSeries(BaseElement):
 
             for key, ds in self._data_sources.items():
                 if key not in self._glyphs:
-                    index = list(self._names.keys()).index(key)
+                    index = list(self._data_sources.keys()).index(key)
                     self._glyphs[key] = self._figure.line(
                         x=ds["x_name"],
                         y=ds["y_name"],
