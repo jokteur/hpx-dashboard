@@ -106,8 +106,10 @@ class SelectCustomLine(BaseWidget):
 
         # Instance infos
         self._locality_input = TextInput(title="Locality #id:", value="0", width=70)
+        self._locality_select = Select(options=[], title="Locality #id:", value="0", width=70)
         self._worker_id = TextInput(title="Worker #id:", width=70, value="0")
-        self._pool = TextInput(title="Pool name:", value="default", width=70)
+        self._pool = TextInput(title="Pool name:", width=70)
+        self._pool_select = Select(options=[], title="Pool name:", width=70)
         self._is_total = RadioGroup(labels=["Yes", "No"], active=0, width=30)
         self._is_total.on_change("active", self._change_is_total)
 
@@ -119,6 +121,7 @@ class SelectCustomLine(BaseWidget):
                 self._collection_widget.layout(),
                 self._countername_autocomplete,
                 self._locality_input,
+                self._pool,
                 row(Div(text="Is total?"), self._is_total),
                 empty_placeholder(),
             ),
@@ -130,16 +133,34 @@ class SelectCustomLine(BaseWidget):
 
     def _change_is_total(self, old, attr, new):
         if new:
-            self._root.children[2].children[5] = row(self._pool, self._worker_id)
+            self._root.children[2].children[6] = self._worker_id
+            self._pool.value = "default"
+            if "default" in self._pool_select.options:
+                self._pool_select.value = "default"
         else:
-            self._root.children[2].children[5] = empty_placeholder()
+            self._pool.value = ""
+            if "No pool" in self._pool_select.options:
+                self._pool_select.value = "No pool"
+            self._root.children[2].children[6] = empty_placeholder()
 
     def _set_collection(self, collection):
         self._selected_collection = collection
         if collection:
             self._countername_autocomplete.completions = collection.get_counter_names()
+            self._locality_select.options = collection.get_localities()
+            self._pool_select.options = [
+                "No pool" if not pool else pool
+                for pool in collection.get_pools(self._locality_input.value)
+            ]
+            if "No pool" in self._pool_select.options:
+                self._pool_select.value = "No pool"
+
+            self._root.children[2].children[3] = self._locality_select
+            self._root.children[2].children[4] = self._pool_select
         else:
             self._countername_autocomplete.completions = counternames
+            self._root.children[2].children[3] = self._locality_input
+            self._root.children[2].children[4] = self._pool
 
     def properties(self):
         """Returns a tuple containing all the information about the custom counter line.
@@ -156,19 +177,28 @@ class SelectCustomLine(BaseWidget):
         if not self._countername_autocomplete.value:
             countername = self._countername_autocomplete.value_input
 
+        pool = None
+        locality = "0"
+        if self._selected_collection:
+            locality = self._locality_select.value
+            if self._pool_select.value != "No pool":
+                pool = self._pool_select.value
+        else:
+            locality = self._locality_input.value
+            if self._pool.value:
+                pool = self._pool.value
+
         is_total = True
         if self._is_total.active == 1:
             is_total = False
 
-        pool = None
-        if not is_total:
-            pool = self._pool.value
-
         worker_id = None
-        if not is_total:
+        if is_total:
+            worker_id = "total"
+        else:
             worker_id = self._worker_id.value
 
-        instance = format_instance(self._locality_input.value, pool, worker_id, is_total)
+        instance = format_instance(locality, pool, worker_id)
 
         return plot_id, self._selected_collection, countername, instance, self._name
 

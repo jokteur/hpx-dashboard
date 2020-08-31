@@ -45,12 +45,9 @@ class _NumpyArrayList:
         self.size += 1
 
 
-def format_instance(locality_id, pool=None, thread_id=None, is_total=True):
+def format_instance(locality_id, pool=None, thread_id="total"):
     """"""
-    if is_total:
-        return str(locality_id)
-    else:
-        return (str(locality_id), pool, str(thread_id))
+    return (str(locality_id), pool, str(thread_id))
 
 
 class DataCollection:
@@ -66,17 +63,13 @@ class DataCollection:
         # Task data is also used to identify all available instances
         self.task_data = {}
 
-    def _add_instance_name(self, locality_id, pool=None, thread_id=None, is_total=True) -> None:
+    def _add_instance_name(self, locality_id, pool=None, thread_id=None) -> None:
         """Adds the instance name to the list of instance names stored in the class."""
         if not locality_id:
             return
 
         if locality_id not in self.task_data:
             self.task_data[str(locality_id)] = {}
-
-        if is_total and "total" not in self.task_data[locality_id]:
-            self.task_data[locality_id]["total"] = None
-            return
 
         if pool not in self.task_data[locality_id]:
             self.task_data[locality_id][pool] = {}
@@ -93,26 +86,25 @@ class DataCollection:
         locality_id = instance_split[0].split("#")[1]
         thread_id = None
         pool = None
-        is_total = False
 
         if "total" in instance_split[1]:
-            is_total = True
+            thread_id = "total"
         else:
             if len(instance_split) == 2:
                 pool = None
                 thread_id = instance_split[1].split("#")[1]
             elif "total" in instance_split[2]:
-                pool = None
-                is_total = True
+                pool = instance_split[1].split("#")[1]
+                thread_id = "total"
             else:
                 pool = instance_split[1].split("#")[1]
                 thread_id = instance_split[2].split("#")[1]
 
-        return locality_id, pool, thread_id, is_total
+        return locality_id, pool, thread_id
 
     def add_task_data(self, locality, thread, name, begin, end):
         """"""
-        self._add_instance_name(locality, thread_id=thread, is_total=False)
+        self._add_instance_name(locality, thread_id=thread)
         self.task_data[locality][None][thread].append([name, float(begin), float(end)])
 
     def add_line(
@@ -156,12 +148,12 @@ class DataCollection:
         if name not in self.data:
             self.data[name] = {}
 
-        locality_id, pool, thread_id, is_total = self._get_instance_infos(full_instance)
+        locality_id, pool, thread_id = self._get_instance_infos(full_instance)
 
         instance_name = full_instance
         if locality_id:
-            self._add_instance_name(locality_id, pool, thread_id, is_total)
-            instance_name = format_instance(locality_id, pool, thread_id, is_total)
+            self._add_instance_name(locality_id, pool, thread_id)
+            instance_name = format_instance(locality_id, pool, thread_id)
 
         try:
             value = float(value)
@@ -212,14 +204,12 @@ class DataCollection:
         return list(self.task_data.keys())
 
     def get_pools(self, locality):
-        """Returns the list of available pools in a particular locality. The `total` is also
-        counted as a pool.
+        """Returns the list of available pools in a particular locality.
         """
         if locality in self.task_data:
             pools = []
             for pool in self.task_data[locality].keys():
-                if pool != "total" and pool:
-                    pools.append(pool)
+                pools.append(pool)
             return pools
         else:
             return []
@@ -229,17 +219,18 @@ class DataCollection:
         num = 0
         if locality in self.task_data:
             for pool in self.task_data[locality].keys():
-                if pool != "total" and pool:
-                    worker_list = [int(idx) for idx in self.task_data[locality][pool].keys()]
-                    if worker_list:
-                        num += max(worker_list) + 1
+                worker_list = [
+                    int(idx) for idx in self.task_data[locality][pool].keys() if idx != "total"
+                ]
+                if worker_list:
+                    num += max(worker_list) + 1
         return num
 
     def get_worker_threads(self, locality, pool=None):
         """Returns the list of worker threads in a particular locality and pool"""
         if locality in self.task_data:
             if pool in self.task_data[locality]:
-                return list(self.task_data[locality][pool].keys())
+                return [idx for idx in self.task_data[locality][pool].keys() if idx != "total"]
 
         return []
 
