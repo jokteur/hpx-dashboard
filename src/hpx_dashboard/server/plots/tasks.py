@@ -12,7 +12,6 @@
 
 from copy import deepcopy
 
-import toolz
 import numpy as np
 from bokeh.plotting import Figure
 from bokeh.layouts import column
@@ -112,7 +111,7 @@ class TasksPlot(BaseElement):
         figure.xaxis.axis_label = "Time (s)"
 
         hovertool = figure.select(HoverTool)
-        hovertool.tooltips = "Name: @name, Duration: @duration"
+        hovertool.tooltips = "Worker ID: @y, Name: @name, Duration: @duration"
         hovertool.point_policy = "follow_mouse"
 
         self._filter_choice = FilterWidget(doc, self.set_filter_list, collection=collection)
@@ -139,7 +138,7 @@ class TasksPlot(BaseElement):
         data_dict = deepcopy(self.empty_dict)
         update = False
 
-        filtered_names_list = []
+        left = np.finfo("f").max
 
         for worker, index in self._workers.items():
             data = self._collection.get_task_data(self._locality, worker, index)
@@ -147,35 +146,44 @@ class TasksPlot(BaseElement):
                 self._workers[worker] += data.shape[0]
                 update = True
 
-                names = data[:, 0]
-
-                idx = list(range(len(names)))
-                if self._filter_list:
-                    idx = list(
-                        toolz.map(
-                            toolz.first,
-                            toolz.filter(lambda x: x[1] in self._filter_list, enumerate(names)),
-                        )
-                    )
+                names = list(data[:, 0])
 
                 self._task_names.update(names)
-                filtered_names = list(names[idx])
 
-                starts = data[:, 1][idx]
-                filtered_names_list += filtered_names
-                ends = data[:, 2][idx]
+                starts = data[:, 1]
+                ends = data[:, 2]
 
                 width = ends - starts
-                left = np.min(starts)
+                start_min = np.min(starts)
+                if start_min < left:
+                    left = start_min
 
                 data_dict["width"] += list(width)
-                data_dict["name"] += filtered_names
+                data_dict["name"] += names
                 data_dict["duration"] += map(format_time, width)
-                data_dict["x"] += list(width / 2 + starts - left)
+                data_dict["x"] += list(width / 2 + starts)
                 data_dict["y"] += list(int(worker) * np.ones(len(width)))
 
+        # There is probably a more efficient way of filtering, but this works for now
+        # Filtering _has_ to be done after the previous for loop
+        if self._filter_list:
+            i = len(data_dict["name"]) - 1
+            for name in reversed(data_dict["name"]):
+                if name not in self._filter_list:
+                    del data_dict["width"][i]
+                    del data_dict["name"][i]
+                    del data_dict["duration"][i]
+                    del data_dict["x"][i]
+                    del data_dict["y"][i]
+                else:
+                    data_dict["x"][i] -= left
+                i -= 1
+        else:
+            for i in range(len(data_dict["x"])):
+                data_dict["x"][i] -= left
+
         self._filter_choice.set_choices(self._task_names)
-        data_dict["color"] = get_colors("Category20", filtered_names_list, False)
+        data_dict["color"] = get_colors("Category20", data_dict["name"], False)
 
         if update:
             self._data.stream(data_dict)
