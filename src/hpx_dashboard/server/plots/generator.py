@@ -79,7 +79,7 @@ class TimeSeries(BaseElement):
 
     def remove_line(self, countername, instance, collection=None):
         """"""
-        # TODO: does not update the plot right now
+        # TODO: does not update the plot correctly right now
         if (countername, instance, collection) in self._data_sources:
             del self._data_sources[(countername, instance, collection)]
             del self._names[(countername, instance, collection)]

@@ -123,14 +123,24 @@ class CustomCounterWidget(BaseWidget):
 
     def update(self):
         lines = set()
+        noname_lines = set()
         for line in self._lines.values():
-            lines.add(line.properties())
+            prop = line.properties()
+            noname_lines.add(prop[:-1])
+            lines.add(prop)
 
         deleted_lines = self._lines_info.difference(lines)
         new_lines = lines.difference(self._lines_info)
 
         for plot_id, collection, countername, instance, name in deleted_lines:
-            if len(self._plots) >= plot_id:
+            # They may be multiple lines (with different names) in lines that have the same
+            # (countername, instance, collection). If we delete one of this line
+            # in the plot as there are still identical lines in the set (without looking at names),
+            # we may end up deleting a line that still needs to be plotted.
+            # noname_lines allows to check for that
+            if (plot_id, collection, countername, instance) not in noname_lines and len(
+                self._plots
+            ) >= plot_id:
                 self._plots[plot_id - 1].remove_line(countername, instance, collection)
 
         for plot_id, collection, countername, instance, name in new_lines:
