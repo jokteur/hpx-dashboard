@@ -21,7 +21,7 @@ from jinja2 import Environment, FileSystemLoader
 from .utils import Notifier
 from .data import format_instance
 from .plots import TasksPlot, TimeSeries
-from .widgets import DataCollectionWidget
+from .widgets import DataCollectionWidget, CustomCounterWidget
 
 env = Environment(
     loader=FileSystemLoader(os.path.join(os.path.dirname(__file__), "http", "templates"))
@@ -29,10 +29,19 @@ env = Environment(
 BOKEH_THEME = Theme(os.path.join(os.path.dirname(__file__), "http", "bokeh_theme.yaml"))
 
 
+def custom_counters(doc, notifier):
+    """Defines the tab for the custom counter widget"""
+    custom_counter = CustomCounterWidget(doc)
+    return custom_counter.layout()
+
+
 def scheduler(doc, notifier):
     """Defines the tab for the task plot"""
+
+    # TODO : if there are multiple pools, plot all the lines
+
     scheduler_plot = TimeSeries(doc, title="Scheduler utilization", y_axis_label="Utilization (%)")
-    counter = "scheduler/utilization/instantaneous"
+    counter = "scheduler/utilization/instantaneaous"
     instance = format_instance("0")
     scheduler_plot.add_line(
         counter, instance, pretty_name="Scheduler utilization",
@@ -61,14 +70,16 @@ def standalone_doc(extra, doc):
 
     widget = DataCollectionWidget(doc, notifier.notify)
 
-    task_plot = tasks(doc, notifier)
-    task_tab = Panel(child=task_plot, title="Tasks plot")
-
-    scheduler_plot = scheduler(doc, notifier)
-    scheduler_tab = Panel(child=scheduler_plot, title="Scheduler utilization")
+    task_tab = Panel(child=tasks(doc, notifier), title="Tasks plot")
+    scheduler_tab = Panel(child=scheduler(doc, notifier), title="Scheduler utilization")
+    custom_counter_tab = Panel(child=custom_counters(doc, notifier), title="Customizable plots")
 
     doc.add_root(
-        row(Tabs(tabs=[scheduler_tab, task_tab]), widget.layout(), sizing_mode="scale_width",)
+        row(
+            Tabs(tabs=[scheduler_tab, task_tab, custom_counter_tab]),
+            widget.layout(),
+            sizing_mode="scale_width",
+        )
     )
 
     doc.template = env.get_template("normal.html")

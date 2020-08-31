@@ -12,10 +12,11 @@
 
 
 from bokeh.layouts import row, column
-from bokeh.models.widgets import AutocompleteInput, Select
+from bokeh.models import AutocompleteInput, Select, TextInput, RadioGroup, Div, Button
 
 from .base import BaseWidget, empty_placeholder
 from ..data import DataAggregator, format_instance
+from ...common.constants import counternames
 
 
 class DataCollectionSelect(BaseWidget):
@@ -76,292 +77,102 @@ class DataCollectionSelect(BaseWidget):
             self._root.options = self._generate_options()
 
 
-class SelectLocality(BaseWidget):
-    """Produces a widget for selecting the locality of a particular instance"""
+class SelectCustomLine(BaseWidget):
+    """Produces a widget for selecting a custom line (counter)"""
 
-    def __init__(self, doc, callback, collection, refresh_rate=500, **kwargs):
-        """Produces a widget that shows all the available localities in a particular DataCollection.
-
-        Arguments
-        ---------
-        doc : Bokeh Document
-            bokeh document for auto-updating the widget
-        callback : function(locality: str)
-            callback for notifying when the user selects a certain locality
-        refresh_rate : int
-            refresh rate at which the Select refreshes based on the data collection
-        **kwargs
-            arguments for the bokeh Select widget
-        """
-        super().__init__(doc, callback, refresh_rate=refresh_rate, collection=collection)
-        self._previous_change = None
-
-        self._defaults_opts = dict(width=100)
-        self._defaults_opts.update((key, value) for key, value in kwargs.items())
-
-        self._select = Select(
-            name=f"Select locality{BaseWidget.instance_num}",
-            options=["Select locality"] + self._generate_options(),
-            title="Select locality",
-            **self._defaults_opts,
+    def __init__(self, doc, idx, plots, callback=None, refresh_rate=500, collection=None, **kwargs):
+        super().__init__(
+            doc, callback=callback, refresh_rate=refresh_rate, collection=collection, **kwargs
         )
-        self._select.on_change("value", self._on_change)
 
-        self._root = self._select
-
-    def _generate_options(self):
-        if self.collection:
-            return self.collection.get_counter_names()
-        else:
-            return []
-
-    # Notify the user for a possible change in selection
-    def _on_change(self, attr, old, new):
-        if self._previous_change != new:
-            self._previous_change = new
-            if new != "Select locality":
-                self._callback(new)
-                self._select.value = new
-            else:
-                self._previous_change = None
-                self._select.value = "Select locality"
-                self._callback(None)
-
-    # Update the Select and autocomplete in case there are new runs
-    def update(self):
-        self._select.options = ["Select locality"] + self._generate_options()
-
-
-class SelectCounterName(BaseWidget):
-    """Produces a widget that shows all the current and past data collection instances
-    in the form of a Select."""
-
-    def __init__(
-        self,
-        doc,
-        callback,
-        collection,
-        refresh_rate=500,
-        width=450,
-        select_kwargs={},
-        autocomplete_kwargs={},
-    ):
-        """Produces a widget that shows all the available counters in a particular DataCollection.
-
-        Arguments
-        ---------
-        doc : Bokeh Document
-            bokeh document for auto-updating the widget
-        callback : function(collection: DataCollection)
-            callback for notifying when the user selects a certain data collection
-        collection : DataCollection
-            instance of data collection to search for the available counters
-        refresh_rate : int
-            refresh rate at which the Select refreshes and checks for new data collections (in ms)
-        select_opt : dict
-            arguments for the bokeh Select
-        autocomplete_opt : dict
-            arguments for the bokeh AutoCompleteInput
-        """
-        super().__init__(doc, callback, refresh_rate=refresh_rate)
-        self.collection = collection
-        self.previous_change = None
-
-        self.select = Select(
-            name=f"Select counter__{BaseWidget.instance_num}",
-            options=["Select name"] + self._generate_options(),
-            width=width,
-            **select_kwargs,
-        )
-        self.autocomplete = AutocompleteInput(
+        self._countername_autocomplete = AutocompleteInput(
             name=f"Autocomplete_{BaseWidget.instance_num}",
-            completions=self._generate_options(),
-            width=width,
-            **autocomplete_kwargs,
-        )
-        self.select.on_change("value", self._on_change)
-        self.autocomplete.on_change("value", self._on_change)
-
-        self._root = row(self.select, self.autocomplete)
-
-    def _generate_options(self):
-        if self.collection:
-            return self.collection.get_counter_names()
-        else:
-            return []
-
-    # Notify the user for a possible change in selection
-    def _on_change(self, attr, old, new):
-        if self.previous_change != new:
-            self.previous_change = new
-            if new != "Select name":
-                self._callback(new)
-                self.autocomplete.value = new
-                self.select.value = new
-            else:
-                self.previous_change = None
-                self.autocomplete.value = None
-                self.select.value = "Select name"
-                self._callback(None)
-
-    # Update the Select and autocomplete in case there are new runs
-    def update(self):
-        self.select.options = ["Select name", "Most recent"] + self._generate_options()
-        self.autocomplete.completions = self._generate_options()
-
-
-class SelectInstance(BaseWidget):
-    """Produces a widget that shows all the current and past data collection instances
-    in the form of a Select."""
-
-    def __init__(
-        self,
-        doc,
-        callback,
-        collection,
-        refresh_rate=500,
-        width=450,
-        select_locality_kwargs={},
-        select_instance_kwargs={},
-    ):
-        """Produces a widget that shows all the available counters in a particular DataCollection.
-
-        Arguments
-        ---------
-        doc : Bokeh Document
-            bokeh document for auto-updating the widget
-        callback : function(collection: DataCollection)
-            callback for notifying when the user selects a certain data collection
-        collection : DataCollection
-            instance of data collection to search for the available counters
-        refresh_rate : int
-            refresh rate at which the Select refreshes and checks for new data collections (in ms)
-        select_locality_kwargs : dict
-            arguments for the bokeh Select locality widget
-        select_instance_kwargs : dict
-            arguments for the bokeh Select instance widget
-        """
-        super().__init__(doc, callback, refresh_rate=refresh_rate)
-        self.collection = collection
-
-        self.select_locality = Select(
-            name=f"Select locality_{BaseWidget.instance_num}",
-            options=self._generate_localities(),
-            width=width,
-            **select_locality_kwargs,
+            title="Countername:",
+            completions=counternames,
+            width=200,
         )
 
-        self.select_instance = Select(
-            name=f"Select instance_{BaseWidget.instance_num}",
-            options=self._generate_instances(),
-            width=width,
-            **select_instance_kwargs,
+        self._collection_widget = DataCollectionSelect(doc, self._set_collection, width=120)
+        self._selected_collection = None
+
+        self._name = f"Line {idx}"
+        self._name_edit = TextInput(title="Change name:", value=self._name, width=150)
+        self._name_edit.on_change("value", self._change_name)
+        self._title = Div(text=f"<h3>{self._name}</h3>")
+
+        self._delete = Button(label="Remove", width=70, button_type="danger")
+        self._delete.on_click(lambda: callback(idx))
+        self._to_plot = Select(options=plots, value=plots[0], title="To plot:", width=70)
+
+        # Instance infos
+        self._locality_input = TextInput(title="Locality #id:", value="0", width=70)
+        self._worker_id = TextInput(title="Worker #id:", width=70, value="0")
+        self._pool = TextInput(title="Pool name:", value="default", width=70)
+        self._is_total = RadioGroup(labels=["Yes", "No"], active=0, width=30)
+        self._is_total.on_change("active", self._change_is_total)
+
+        self._root = column(
+            row(self._title, self._name_edit),
+            self._delete,
+            row(
+                self._to_plot,
+                self._collection_widget.layout(),
+                self._countername_autocomplete,
+                self._locality_input,
+                row(Div(text="Is total?"), self._is_total),
+                empty_placeholder(),
+            ),
         )
-        self.select_locality.on_change("value", self._on_change_locality)
-        self.select_instance.on_change("value", self._on_change_instance)
 
-        self._root = row(self.select_locality, empty_placeholder())
+    def _change_name(self, old, attr, new):
+        self._name = new
+        self._title.text = f"<h3>{new}</h3>"
 
-    def _generate_localities(self):
-        prelude = ["Select locality"]
-        if self.collection:
-            return prelude + list(self.collection.get_localities())
+    def _change_is_total(self, old, attr, new):
+        if new:
+            self._root.children[2].children[5] = row(self._pool, self._worker_id)
         else:
-            return prelude
+            self._root.children[2].children[5] = empty_placeholder()
 
-    def _generate_instances(self, locality="Select locality"):
-        prelude = ["Select instance"]
-        if self.collection and locality.strip() and locality != "Select locality":
-            instances_names = []
-            for pool in self.collection.get_pools(locality):
-                if pool == "total":
-                    instances_names.append(pool)
-                elif pool:
-                    for worker_thread in self.collection.get_worker_threads(locality, pool):
-                        instances_names.append(f"Pool #{pool} ; Worker-thread #{worker_thread}")
-            return prelude + instances_names
-        else:
-            return prelude
-
-    def _on_change_locality(self, attr, old, new):
-        if new != "Select locality":
-            self.select_instance.options = self._generate_instances(new)
-            self._root.children[1] = self.select_instance
-        else:
-            self.select_instance.value = "Select instance"
-            self._root.children[1] = empty_placeholder()
-
-    # Notify the user for a possible change in selection
-    def _on_change_instance(self, attr, old, new):
-        if new != "Select instance":
-            if new == "total":
-                self._callback(format_instance(self.select_locality.value))
-            else:
-                split = new.split()
-                pool = split[1][1:]
-                worker_thread = split[4][1:]
-                self._callback(
-                    format_instance(self.select_locality.value, pool, worker_thread, False)
-                )
-        else:
-            self._callback(None)
-
-    def update(self):
-        self.select_instance.options = self._generate_instances(self.select_locality.value)
-        self.select_locality.options = self._generate_localities()
-
-
-class SelectCounter(BaseWidget):
-    """Produces a widget that allows for selecting a particular counter
-    and instance in a certain run."""
-
-    def __init__(self, doc, callback, refresh_rate=500, **kwargs):
-        """Produces a widget that allows for selecting a particular counter and instance in a certain run.
-
-        Arguments
-        ---------
-        doc : Bokeh Document
-            bokeh document for auto-updating the widget
-        callback : function(collection: DataCollection)
-            callback for notifying when the user selects a certain data collection
-        collection : DataCollection
-            instance of data collection to search for the available counters
-        refresh_rate : int
-            refresh rate at which the widget refreshes itself
-        **kwargs
-            arguments for the bokeh Select widgets
-        """
-        super().__init__(doc, callback, refresh_rate=refresh_rate)
-
-        self.select_run = DataCollectionSelect(
-            doc, self._update_run, width=450, title="Select run", **kwargs
-        )
-        self.select_counter_name = None
-        self.select_instance = None
-        self._root = column(self.select_run.widget, empty_placeholder(), empty_placeholder())
-
-    def _update_run(self, collection):
+    def _set_collection(self, collection):
+        self._selected_collection = collection
         if collection:
-            self.select_counter_name = SelectCounterName(
-                self._doc,
-                self._callback,
-                collection,
-                self._refresh_rate,
-                select_kwargs={"title": "Select the counter name"},
-                autocomplete_kwargs={"title": "or type in the counter name"},
-            )
-            self.select_instance = SelectInstance(
-                self._doc,
-                self._callback,
-                collection,
-                self._refresh_rate,
-                select_locality_kwargs={"title": "Select the locality"},
-                select_instance_kwargs={"title": "Select the instance"},
-            )
-            self._root.children[1] = self.select_counter_name.widget
-            self._root.children[2] = self.select_instance.widget
+            self._countername_autocomplete.completions = collection.get_counter_names()
         else:
-            self.select_counter_name = None
-            self.select_instance = None
-            self._root.children[1] = empty_placeholder()
-            self._root.children[2] = empty_placeholder()
+            self._countername_autocomplete.completions = counternames
+
+    def properties(self):
+        """Returns a tuple containing all the information about the custom counter line.
+
+        In order, returns:
+            id of the plot
+            collection object or None
+            countername of the line
+            instance
+        """
+        plot_id = int(self._to_plot.value.split()[1])
+
+        countername = self._countername_autocomplete.value
+        if not self._countername_autocomplete.value:
+            countername = self._countername_autocomplete.value_input
+
+        is_total = True
+        if self._is_total.active == 1:
+            is_total = False
+
+        pool = None
+        if not is_total:
+            pool = self._pool.value
+
+        worker_id = None
+        if not is_total:
+            worker_id = self._worker_id.value
+
+        instance = format_instance(self._locality_input.value, pool, worker_id, is_total)
+
+        return plot_id, self._selected_collection, countername, instance, self._name
+
+    def set_plots(self, plots):
+        self._to_plot.options = plots
+        if self._to_plot.value not in plots:
+            self._to_plot.value = plots[0]

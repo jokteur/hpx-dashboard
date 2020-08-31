@@ -10,16 +10,138 @@
 """
 """
 
+import copy
 from datetime import datetime
 
-from bokeh.layouts import column
-from bokeh.models.widgets import Button, Div
+from bokeh.layouts import column, row
+from bokeh.models.widgets import Button, Div, Toggle
 
 from .base import BaseWidget, empty_placeholder
-from .select import DataCollectionSelect, SelectCounter
+from ..plots import generator
+from .select import DataCollectionSelect, SelectCustomLine
 from ..data import DataAggregator
 
-# from ..plots import PlotGenerator
+
+class CustomCounterWidget(BaseWidget):
+    """Produces a widget for plotting any counters"""
+
+    def __init__(self, doc, refresh_rate=1000, collection=None, **kwargs):
+        """Produces a widget that allows the user to add / remove plots for any
+        counters from any collection
+
+        Arguments
+        ---------
+        doc : Bokeh Document
+            bokeh document for auto-updating the widget
+        refresh_rate : int
+            refresh rate at which the Select refreshes and checks for new data collections (in ms)
+        **kwargs
+            arguments for the bokeh Select widget
+        """
+        super().__init__(doc, refresh_rate=refresh_rate, collection=collection, **kwargs)
+
+        self._defaults_opts = dict(plot_width=800, plot_height=300)
+        self._defaults_opts.update((key, value) for key, value in kwargs.items())
+
+        self._plots = [
+            generator.TimeSeries(
+                doc, refresh_rate=refresh_rate, title="Plot 1", **self._defaults_opts
+            )
+        ]
+        self._lines = {}
+        self._lines_info = set()
+        self._line_counter = 0
+
+        # Buttons for editing the lines
+        self._add_line_b = Button(label="+", width=40)
+        self._add_line_b.on_click(self._add_line)
+
+        # Buttons for adding and removing plots
+        self._add_plot_b = Button(label="+", width=40)
+        self._add_plot_b.on_click(self._add_plot)
+
+        self._remove_plot_b = Button(label="-", width=40)
+        self._remove_plot_b.on_click(self._remove_plot)
+
+        # For editing the lines
+        self._edit_button = Toggle(label="Edit lines", width=100)
+        self._edit_button.on_click(self._toggle_edit)
+
+        self._root = column(
+            row(
+                Div(text="Add or remove plots:"),
+                self._remove_plot_b,
+                self._add_plot_b,
+                self._edit_button,
+            ),
+            empty_placeholder(),
+            column(self._plots[-1].layout()),
+        )
+
+    def _remove_line(self, idx):
+        del self._lines[idx]
+        self._update_line_widget()
+
+    def _add_line(self):
+        plots_text = [f"Plot {i + 1}" for i, _ in enumerate(self._plots)]
+        self._line_counter += 1
+        self._lines[self._line_counter] = SelectCustomLine(
+            self._doc, self._line_counter, plots_text, self._remove_line,
+        )
+        self._update_line_widget()
+
+    def _update_plots(self):
+        plots = [plot.layout() for plot in self._plots]
+        self._root.children[2] = column(*plots)
+
+        # Update the lines with the available plots
+        plots_text = [f"Plot {i + 1}" for i, _ in enumerate(self._plots)]
+        for line in self._lines.values():
+            line.set_plots(plots_text)
+
+    def _update_line_widget(self):
+        lines = [line.layout() for line in self._lines.values()]
+        self._root.children[1] = column(row(self._add_line_b, Div(text="Add line")), *lines)
+
+    def _toggle_edit(self, edit):
+        if edit:
+            self._update_line_widget()
+        else:
+            self._root.children[1] = empty_placeholder()
+
+    def _add_plot(self):
+        opts = copy.deepcopy(self._defaults_opts)
+        self._plots.append(
+            generator.TimeSeries(
+                self._doc,
+                refresh_rate=self._refresh_rate,
+                title=f"Plot {len(self._plots) + 1}",
+                **opts,
+            )
+        )
+        self._update_plots()
+
+    def update(self):
+        lines = set()
+        for line in self._lines.values():
+            lines.add(line.properties())
+
+        deleted_lines = self._lines_info.difference(lines)
+        new_lines = lines.difference(self._lines_info)
+
+        for plot_id, collection, countername, instance, name in deleted_lines:
+            if len(self._plots) >= plot_id:
+                self._plots[plot_id - 1].remove_line(countername, instance, collection)
+
+        for plot_id, collection, countername, instance, name in new_lines:
+            self._plots[plot_id - 1].add_line(countername, instance, collection, name)
+        self._lines_info = lines
+
+    def _remove_plot(self):
+        if len(self._plots) == 1:
+            return
+        del self._plots[-1]
+        self._update_plots()
 
 
 class DataCollectionWidget(BaseWidget):
@@ -88,7 +210,9 @@ class DataCollectionWidget(BaseWidget):
 
             # Num threads and localities
             localities = collection.get_localities()
-            num_workers = collection.get_num_worker_threads(localities[0])
+            num_workers = 0
+            if localities:
+                num_workers = collection.get_num_worker_threads(localities[0])
 
             instance_info = ""
             if len(localities) == 1:
@@ -109,47 +233,3 @@ class DataCollectionWidget(BaseWidget):
 
             if text != self._div.text:
                 self._div.text = text
-
-
-class PlotGeneratorWidget(BaseWidget):
-    """"""
-
-    def __init__(self, doc, callback, refresh_rate=500, **kwargs):
-        """Produces a widget that allows for selecting a particular counter and instance in a certain run.
-
-        Arguments
-        ---------
-        doc : Bokeh Document
-            bokeh document for auto-updating the widget
-        callback : function(collection: DataCollection)
-            callback for notifying when the user selects a certain data collection
-        collection : DataCollection
-            instance of data collection to search for the available counters
-        refresh_rate : int
-            refresh rate at which the widget refreshes itself
-        **kwargs
-            arguments for the bokeh Select widgets
-        """
-        super().__init__(doc, callback, refresh_rate=refresh_rate)
-
-        # self.plot = PlotGenerator(doc, "Line plot", width=980, height=500)
-
-        self.add_button = Button("Add counter")
-        self.ok_button = Button("Ok")
-        self.add_button.on_click(self._add_button_click)
-        self.ok_button.on_click(self._ok_button_click)
-
-        self.selected_locality = None
-        self.selected_collection = None
-        self.selected_instance = None
-
-        self._root = column(self.add_button, empty_placeholder(), self.plot.get_plot())
-
-    def _selected(self, out):
-        print(out)
-
-    def _add_button_click(self):
-        self._root.children[1] = column(SelectCounter(self._doc, self._selected), self.ok_button)
-
-    def _ok_button_click(self):
-        pass
