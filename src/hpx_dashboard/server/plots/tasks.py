@@ -66,6 +66,7 @@ class TasksPlot(BaseElement):
         self._last_run = -1
 
         self._task_names = set()
+        self._left_time = np.finfo("f").max
         self._filter_list = []
 
         tmp_list = []
@@ -138,8 +139,6 @@ class TasksPlot(BaseElement):
         data_dict = deepcopy(self.empty_dict)
         update = False
 
-        left = np.finfo("f").max
-
         for worker, index in self._workers.items():
             data = self._collection.get_task_data(self._locality, worker, index)
             if data.ndim == 2:
@@ -155,8 +154,8 @@ class TasksPlot(BaseElement):
 
                 width = ends - starts
                 start_min = np.min(starts)
-                if start_min < left:
-                    left = start_min
+                if start_min < self._left_time:
+                    self._left_time = start_min
 
                 data_dict["width"] += list(width)
                 data_dict["name"] += names
@@ -176,11 +175,11 @@ class TasksPlot(BaseElement):
                     del data_dict["x"][i]
                     del data_dict["y"][i]
                 else:
-                    data_dict["x"][i] -= left
+                    data_dict["x"][i] -= self._left_time
                 i -= 1
         else:
             for i in range(len(data_dict["x"])):
-                data_dict["x"][i] -= left
+                data_dict["x"][i] -= self._left_time
 
         self._filter_choice.set_choices(self._task_names)
         data_dict["color"] = get_colors("Category20", data_dict["name"], False)
@@ -210,6 +209,7 @@ class TasksPlot(BaseElement):
             self._data.data = deepcopy(self.empty_dict)
             self._task_names = set()
             self._reset = False
+            self._left_time = np.finfo("f").max
 
         # Update the list of workers
         if self._worker_opt == "*" and self._collection:
