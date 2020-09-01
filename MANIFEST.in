@@ -1,0 +1,3 @@
+recursive-include src *.css
+recursive-include src *.html
+recursive-include src *.yaml
