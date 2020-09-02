@@ -124,8 +124,7 @@ class CustomCounterWidget(BaseWidget):
     def update(self):
         lines = set()
         for line in self._lines.values():
-            prop = line.properties()
-            lines.add(prop)
+            lines.add(line.properties())
 
         deleted_lines = self._lines_info.difference(lines)
         new_lines = lines.difference(self._lines_info)

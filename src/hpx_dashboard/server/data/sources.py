@@ -63,6 +63,8 @@ class DataSources(metaclass=Singleton):
             reset = True
 
         for identifier, data in self._data[doc].items():
+            if identifier[2]:
+                continue
             update = False
             if reset:
                 data["data_source"].data = self._get_from_collection(doc, None, identifier)

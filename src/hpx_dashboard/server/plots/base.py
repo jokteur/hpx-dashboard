@@ -89,7 +89,8 @@ class BaseElement(metaclass=ABCMeta):
         self._callback_object = doc.add_periodic_callback(self.update, refresh_rate)
 
     def __del__(self):
-        self._doc.remove_periodic_callback(self._callback_object)
+        if self._callback_object:
+            self._doc.remove_periodic_callback(self._callback_object)
 
     def _select_last_collection(self):
         if DataAggregator().get_current_run():

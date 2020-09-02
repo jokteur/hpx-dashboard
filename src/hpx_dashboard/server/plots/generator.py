@@ -77,6 +77,8 @@ class TimeSeries(BaseElement):
             self._make_figure()
             self._rebuild_figure = False
 
+        print(ds["data_source"].data[ds["x_name"]])
+
     def remove_line(self, countername, instance, collection=None, pretty_name=None):
         """"""
         # TODO: does not update the plot correctly right now

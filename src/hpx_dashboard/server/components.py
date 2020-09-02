@@ -43,15 +43,16 @@ def scheduler(doc, notifier):
     scheduler_plot = TimeSeries(doc, title="Scheduler utilization", y_axis_label="Utilization (%)")
     counter = "scheduler/utilization/instantaneous"
     instance = format_instance("0")
+    pretty_name = "Scheduler utilization"
     scheduler_plot.add_line(
-        counter, instance, pretty_name="Scheduler utilization",
+        counter, instance, pretty_name=pretty_name,
     )
 
     def _reset_lines(collection):
         nonlocal scheduler_plot
 
         scheduler_plot.remove_all()
-        scheduler_plot.add_line(counter, instance, collection)
+        scheduler_plot.add_line(counter, instance, collection, pretty_name=pretty_name)
 
     notifier.subscribe(_reset_lines)
     return scheduler_plot.layout()
