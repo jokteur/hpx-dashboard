@@ -20,7 +20,10 @@ from bokeh.models.widgets import Button, Div, Toggle, TextAreaInput
 from .base import BaseWidget, empty_placeholder
 from ..plots import generator
 from .select import DataCollectionSelect, SelectCustomLine
+from ...common.logger import Logger
 from ..data import DataAggregator, from_instance
+
+logger = Logger()
 
 
 class CustomCounterWidget(BaseWidget):
@@ -150,7 +153,11 @@ class CustomCounterWidget(BaseWidget):
     def from_json(self, json_txt):
         """Takes a json as input and generates the corresponding plots and widgets.
         Returns True if successful, False otherwise."""
-        json_dict = json.loads(json_txt.rstrip())
+        json_dict = {}
+        try:
+            json_dict = json.loads(json_txt.rstrip())
+        except json.decoder.JSONDecodeError as e:
+            logger.error(f"JSON decode error: {e.msg}")
 
         if "lines" not in json_dict:
             return False
