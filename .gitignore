@@ -8,3 +8,6 @@ pip-wheel*
 build
 dist
 sdist
+
+# Sphinx documentation
+docs/_build/
