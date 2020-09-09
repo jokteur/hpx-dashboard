@@ -11,8 +11,8 @@
 """
 """
 
-from .collection import DataCollection, format_instance
+from .collection import DataCollection, format_instance, from_instance
 from .aggregator import DataAggregator
 from .sources import DataSources
 
-__all__ = ["DataCollection", "format_instance", "DataAggregator", "DataSources"]
+__all__ = ["DataCollection", "format_instance", "from_instance", "DataAggregator", "DataSources"]

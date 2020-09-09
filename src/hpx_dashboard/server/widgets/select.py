@@ -107,7 +107,7 @@ class SelectCustomLine(BaseWidget):
         # Instance infos
         self._locality_input = TextInput(title="Locality #id:", value="0", width=70)
         self._locality_select = Select(options=[], title="Locality #id:", value="0", width=70)
-        self._worker_id = TextInput(title="Worker #id:", width=70, value="0")
+        self._thread_id = TextInput(title="Worker #id:", width=70, value="0")
         self._pool = TextInput(title="Pool name:", width=70)
         self._pool_select = Select(options=[], title="Pool name:", width=70)
         self._is_total = RadioGroup(labels=["Yes", "No"], active=0, width=30)
@@ -133,7 +133,7 @@ class SelectCustomLine(BaseWidget):
 
     def _change_is_total(self, old, attr, new):
         if new:
-            self._root.children[2].children[6] = self._worker_id
+            self._root.children[2].children[6] = self._thread_id
             self._pool.value = "default"
             if "default" in self._pool_select.options:
                 self._pool_select.value = "default"
@@ -196,11 +196,38 @@ class SelectCustomLine(BaseWidget):
         if is_total:
             worker_id = "total"
         else:
-            worker_id = self._worker_id.value
+            worker_id = self._thread_id.value
 
         instance = format_instance(locality, pool, worker_id)
 
         return plot_id, self._selected_collection, countername, instance, self._name
+
+    def set_properties(self, plot_id, collection, countername, locality_id, pool, thread_id, name):
+        """Sets the properties of the widget from the arguments"""
+        if plot_id in self._to_plot.options:
+            self._to_plot.value = plot_id
+
+        self._set_collection(collection)
+        self._countername_autocomplete.value = countername
+
+        if locality_id in self._locality_select.options:
+            self._locality_select.value = locality_id
+        self._locality_input.value = locality_id
+
+        if thread_id == "total":
+            self._change_is_total(None, None, 0)
+            self._is_total.active = 0
+        else:
+            self._thread_id.value = thread_id
+            self._change_is_total(None, None, 1)
+            self._is_total.active = 1
+
+        if pool in self._pool_select.options:
+            self._pool_select = pool
+        self._pool.value = pool
+
+        self._change_name(None, None, name)
+        self._name_edit.value = name
 
     def set_plots(self, plots):
         self._to_plot.options = plots

@@ -12,14 +12,15 @@
 
 import copy
 from datetime import datetime
+import json
 
 from bokeh.layouts import column, row
-from bokeh.models.widgets import Button, Div, Toggle
+from bokeh.models.widgets import Button, Div, Toggle, TextAreaInput
 
 from .base import BaseWidget, empty_placeholder
 from ..plots import generator
 from .select import DataCollectionSelect, SelectCustomLine
-from ..data import DataAggregator
+from ..data import DataAggregator, from_instance
 
 
 class CustomCounterWidget(BaseWidget):
@@ -67,6 +68,12 @@ class CustomCounterWidget(BaseWidget):
         self._edit_button = Toggle(label="Edit lines", width=100)
         self._edit_button.on_click(self._toggle_edit)
 
+        self._json_input = TextAreaInput(
+            title="Export / inport widget:", width=500, max_length=20000
+        )
+        self._json_update_button = Button(label="Update from input", width=150)
+        self._json_update_button.on_click(self._set_from_input)
+
         self._root = column(
             row(
                 Div(text="Add or remove plots:"),
@@ -82,13 +89,14 @@ class CustomCounterWidget(BaseWidget):
         del self._lines[idx]
         self._update_line_widget()
 
-    def _add_line(self):
+    def _add_line(self, update=True):
         plots_text = [f"Plot {i + 1}" for i, _ in enumerate(self._plots)]
         self._line_counter += 1
         self._lines[self._line_counter] = SelectCustomLine(
             self._doc, self._line_counter, plots_text, self._remove_line,
         )
-        self._update_line_widget()
+        if update:
+            self._update_line_widget()
 
     def _update_plots(self):
         plots = [plot.layout() for plot in self._plots]
@@ -101,7 +109,11 @@ class CustomCounterWidget(BaseWidget):
 
     def _update_line_widget(self):
         lines = [line.layout() for line in self._lines.values()]
-        self._root.children[1] = column(row(self._add_line_b, Div(text="Add line")), *lines)
+        self._root.children[1] = column(
+            row(self._json_input, self._json_update_button),
+            row(self._add_line_b, Div(text="Add line")),
+            *lines,
+        )
 
     def _toggle_edit(self, edit):
         if edit:
@@ -121,6 +133,72 @@ class CustomCounterWidget(BaseWidget):
         )
         self._update_plots()
 
+    def _set_from_input(self):
+        self._toggle_edit(False)
+        self._edit_button.active = False
+        self.from_json(self._json_input.value)
+
+    def to_json(self):
+        """Converts the state of the widget (number of plots, lines) to json"""
+        json_dict = {"num_plots": len(self._plots), "lines": []}
+        for plot_id, collection, countername, instance, name in self._lines_info:
+            json_dict["lines"].append(
+                {"plot_id": plot_id, "countername": countername, "instance": instance, "name": name}
+            )
+        return json.dumps(json_dict)
+
+    def from_json(self, json_txt):
+        """Takes a json as input and generates the corresponding plots and widgets.
+        Returns True if successful, False otherwise."""
+        json_dict = json.loads(json_txt.rstrip())
+
+        if "lines" not in json_dict:
+            return False
+
+        num_plots = 1
+        if "num_plots" in json_dict:
+            num_plots = json_dict["num_plots"]
+
+        # Remove all the lines
+        self._lines.clear()
+
+        # Set the correct number of plots
+        if num_plots > len(self._plots):
+            for _ in range(num_plots - len(self._plots)):
+                self._add_plot()
+        elif num_plots < len(self._plots):
+            for _ in range(len(self._plots) - num_plots):
+                self._remove_plot()
+
+        for line in json_dict["lines"]:
+            if not isinstance(line, dict):
+                return False
+            if (
+                "plot_id" not in line
+                or "countername" not in line
+                or "instance" not in line
+                or "name" not in line
+            ):
+                return False
+
+            if not from_instance(tuple(line["instance"])):
+                return False
+
+            locality_id, pool, thread_id = from_instance(line["instance"])
+
+            self._add_line(False)
+            self._lines[self._line_counter].set_properties(
+                line["plot_id"],
+                None,
+                line["countername"],
+                locality_id,
+                pool,
+                thread_id,
+                line["name"],
+            )
+
+        return True
+
     def update(self):
         lines = set()
         for line in self._lines.values():
@@ -136,6 +214,8 @@ class CustomCounterWidget(BaseWidget):
         for plot_id, collection, countername, instance, name in new_lines:
             self._plots[plot_id - 1].add_line(countername, instance, collection, name)
         self._lines_info = lines
+
+        self._json_input.value = self.to_json()
 
     def _remove_plot(self):
         if len(self._plots) == 1:

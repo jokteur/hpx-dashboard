@@ -50,6 +50,23 @@ def format_instance(locality_id, pool=None, thread_id="total"):
     return (str(locality_id), pool, str(thread_id))
 
 
+def from_instance(instance):
+    """Returns the locality id, pool and thread id the str `instance`.
+    If `instance` is not valid, then None is returned."""
+    if isinstance(instance, tuple) or isinstance(instance, list):
+        if not len(instance) == 3:
+            return None
+
+        if isinstance(instance, list):
+            instance = tuple(instance)
+
+        return instance
+    elif isinstance(instance, str):
+        return instance, None, "total"
+    else:
+        return None
+
+
 class DataCollection:
     """The data collection class provides an interface for storing and reading hpx performance data.
 
