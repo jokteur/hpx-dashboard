@@ -1,5 +1,6 @@
+toolz
 numpy
-streamz
-bokeh>=1.3.4
-holoviews
+datashader
+bokeh>=2.0.0
+pandas
 pre-commit
