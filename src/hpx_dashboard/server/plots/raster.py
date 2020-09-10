@@ -261,9 +261,7 @@ class ShadedTimeSeries(BaseElement):
         self._root = figure(**self._defaults_opts)
         self._root.x_range.range_padding = self._root.y_range.range_padding = 0
         self._root.image_rgba(image="img", source=self._ds, x="x", y="y", dw="dw", dh="dh")
-        self._root.on_event(Reset, self._reset)
-
-        self.start_update()
+        self._root.on_event(Reset, self._reset_fct)
 
     def _reshade(self, immediate=False, message=""):
         """"""
@@ -292,7 +290,7 @@ class ShadedTimeSeries(BaseElement):
         else:
             self._throttledEvent.add_event(gen)
 
-    def _reset(self, event):
+    def _reset_fct(self, event):
         """"""
         self._x_range, self._y_range = _normalize_ranges(*get_ranges(self._data, self._x, self._y))
         self._current_x_range, self._current_y_range = self._x_range, self._y_range

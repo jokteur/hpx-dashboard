@@ -57,8 +57,22 @@ class TimeSeries(BaseElement):
         self._root = column(empty_placeholder())
         self._show_legend = False
 
-    def add_line(self, countername, instance, collection=None, pretty_name=None):
-        """"""
+    def add_line(self, countername, instance, collection=None, pretty_name=None, hold_update=False):
+        """Adds a line to the plot.
+
+        Parameters
+        ----------
+        countername
+            name of the counter
+        instance
+            instance (locality id, pool, thread id) given by format_instance()
+        collection
+            collection to plot from. If None, then it is the most recent run
+        pretty_name
+            name that will appear in the legend
+        hold_update
+            if True, the plot will not update itself. One has to manually call _make_figure()
+        """
         key = (countername, instance, collection, pretty_name)
 
         if not pretty_name:
@@ -74,17 +88,35 @@ class TimeSeries(BaseElement):
         if self._is_shaded:
             self._reshade = True
         else:
-            self._make_figure()
+            if not hold_update:
+                self._make_figure()
             self._rebuild_figure = False
 
-    def remove_line(self, countername, instance, collection=None, pretty_name=None):
-        """"""
+    def remove_line(
+        self, countername, instance, collection=None, pretty_name=None, hold_update=False
+    ):
+        """Removes a line from the plot if it is present in the list.
+
+        Parameters
+        ----------
+        countername
+            name of the counter
+        instance
+            instance (locality id, pool, thread id) given by format_instance()
+        collection
+            collection to plot from. If None, then it is the most recent run
+        pretty_name
+            name that will appear in the legend
+        hold
+            if True, the plot will not update itself. One has to manually call _make_figure()
+        """
         # TODO: does not update the plot correctly right now
         key = (countername, instance, collection, pretty_name)
         if key in self._data_sources:
             del self._data_sources[key]
             del self._glyphs[key]
-        self._make_figure()
+        if not hold_update:
+            self._make_figure()
 
     def remove_all(self):
         """"""
@@ -136,7 +168,7 @@ class TimeSeries(BaseElement):
             self._shaded_fig = ShadedTimeSeries(
                 self._doc, self._data, self._x, self._y, self._colors, **self._defaults_opts,
             )
-            self._figure = self._shaded_fig.plot()
+            self._figure = self._shaded_fig.layout()
         else:
             self._figure = Figure(**self._defaults_opts)
 

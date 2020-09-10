@@ -21,7 +21,7 @@ from jinja2 import Environment, FileSystemLoader
 from .utils import Notifier
 from .data import format_instance
 from .plots import TasksPlot, TimeSeries
-from .widgets import DataCollectionWidget, CustomCounterWidget
+from .widgets import DataCollectionWidget, CustomCounterWidget, empty_placeholder
 
 env = Environment(
     loader=FileSystemLoader(os.path.join(os.path.dirname(__file__), "http", "templates"))
@@ -63,6 +63,7 @@ def tasks(doc, notifier):
     task_plot = TasksPlot(doc)
     notifier.subscribe(task_plot.set_collection)
     return task_plot.layout()
+    return empty_placeholder()
 
 
 def standalone_doc(extra, doc):
