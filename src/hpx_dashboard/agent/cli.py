@@ -162,6 +162,7 @@ def agent(argv):
         target=_threaded_io_loop,
         args=(loop, (opt.host, opt.port, opt.timeout, queue, stop_signal)),
     )
+    tcp_thread.daemon = True
     tcp_thread.start()
 
     # Launch collection
