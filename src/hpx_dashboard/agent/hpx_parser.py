@@ -160,8 +160,9 @@ class HPXParser:
             # It is assumed that once the first hpx performance counter is outputed, the
             # --hpx:list-counter-infos is finished.
             # This means that the counter informations can be sent
+            if self.collect_counter_infos:
+                self.queue.put(pickle.dumps(("counter-infos", self.counter_descriptions)))
             self.collect_counter_infos = False
-            self.queue.put(pickle.dumps(("counter-infos", self.counter_descriptions)))
 
             return True
 
