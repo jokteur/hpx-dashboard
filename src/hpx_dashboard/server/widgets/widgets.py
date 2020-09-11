@@ -47,11 +47,6 @@ class CustomCounterWidget(BaseWidget):
         self._defaults_opts = dict(plot_width=800, plot_height=300)
         self._defaults_opts.update((key, value) for key, value in kwargs.items())
 
-        self._plots = [
-            generator.TimeSeries(
-                doc, refresh_rate=refresh_rate, title="Plot 1", **self._defaults_opts
-            )
-        ]
         self._lines = {}
         self._lines_info = set()
         self._line_counter = 0
@@ -85,8 +80,11 @@ class CustomCounterWidget(BaseWidget):
                 self._edit_button,
             ),
             empty_placeholder(),
-            column(self._plots[-1].layout()),
+            empty_placeholder(),
         )
+
+        self._plots = []
+        self._add_plot()
 
     def _remove_line(self, idx):
         del self._lines[idx]
@@ -131,6 +129,7 @@ class CustomCounterWidget(BaseWidget):
                 self._doc,
                 refresh_rate=self._refresh_rate,
                 title=f"Plot {len(self._plots) + 1}",
+                print_stats=True,
                 **opts,
             )
         )

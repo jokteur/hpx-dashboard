@@ -35,6 +35,9 @@ class DataSources(metaclass=Singleton):
         self._periodic_callback = {}
         self._current_collection = None
 
+        # Temporary counter to know how many data points per stream we are having
+        self._num_updates = {}
+
     def _get_from_collection(self, doc, collection: DataCollection, identifier: tuple):
         """"""
         data_dict = {
@@ -53,6 +56,7 @@ class DataSources(metaclass=Singleton):
                     f"{identifier}_time": data[:, 2],
                     f"{identifier}": data[:, 4],
                 }
+                self._num_updates[doc][identifier] += 1
         return data_dict
 
     def _update(self, doc):
@@ -104,6 +108,7 @@ class DataSources(metaclass=Singleton):
         if doc not in self._data:
             self._data[doc] = {}
             self.start_update(doc)
+            self._num_updates[doc] = {}
 
         # Build the data source from scratch if it does not exists
         if identifier not in self._data[doc]:
@@ -118,6 +123,8 @@ class DataSources(metaclass=Singleton):
                 "callbacks": set(),
             }
 
+            self._num_updates[doc][identifier] = 0
+
             if collection:
                 self._data[doc][identifier]["data_source"] = ColumnDataSource(
                     self._get_from_collection(doc, collection, identifier)
@@ -128,6 +135,25 @@ class DataSources(metaclass=Singleton):
                 )
 
         return self._data[doc][identifier]
+
+    def get_stats(self, doc, countername: str, instance: tuple, collection=None):
+        """Returns the total number of points and the mean number of points per update of the line.
+        """
+        identifier = (countername, instance, collection)
+        self.get_data(doc, countername, instance, collection)
+
+        if self._num_updates[doc][identifier]:
+            total = len(
+                self._data[doc][identifier]["data_source"].data[
+                    self._data[doc][identifier]["x_name"]
+                ]
+            )
+            mean = total / self._num_updates[doc][identifier]
+            # print(mean, total)
+
+            return total, mean
+        else:
+            return 0, 0
 
     def get_live_collection(self):
         """"""

@@ -24,7 +24,7 @@ from .raster import ShadedTimeSeries
 class TimeSeries(BaseElement):
     """"""
 
-    def __init__(self, doc, shade=False, refresh_rate=500, **kwargs):
+    def __init__(self, doc, shade=False, refresh_rate=500, print_stats=False, **kwargs):
         """"""
         super().__init__(doc, refresh_rate=refresh_rate)
 
@@ -56,6 +56,7 @@ class TimeSeries(BaseElement):
         self._is_shaded = shade
         self._root = column(empty_placeholder())
         self._show_legend = False
+        self._print_stats = print_stats
 
     def add_line(self, countername, instance, collection=None, pretty_name=None, hold_update=False):
         """Adds a line to the plot.
@@ -145,6 +146,20 @@ class TimeSeries(BaseElement):
                 self._data, self._x, self._y, self._colors, self._x_range, self._y_range,
             )
             self._reshade = False
+
+        # Get statistics of lines
+        totals = []
+        means = []
+        for key in self._data_sources.keys():
+            countername, instance, collection, pretty_name = key
+            total, mean = DataSources().get_stats(self._doc, countername, instance, collection)
+            totals.append(total)
+            means.append(mean)
+
+        if means and self._print_stats:
+            total = sum(totals)
+            mean = sum(means)
+            print(f"Total: {total}, mean: {mean}, {len(totals)}")
 
     def _build_legend(self):
         legend_items = []
