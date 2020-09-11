@@ -74,6 +74,7 @@ class DataSources(metaclass=Singleton):
                 data["data_source"].data = self._get_from_collection(doc, None, identifier)
                 data["last_index"] = 0
                 data["last_time"] = 0
+                self._num_updates[doc][identifier] = 0
                 update = True
 
             new_data = {f"{identifier}": []}
