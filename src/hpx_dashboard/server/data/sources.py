@@ -97,7 +97,11 @@ class DataSources(metaclass=Singleton):
                     callback()
 
     def get_data(
-        self, doc, countername: str, instance: tuple, collection=None,
+        self,
+        doc,
+        countername: str,
+        instance: tuple,
+        collection=None,
     ):
         """"""
         # Start auto-update if it is not already the case
@@ -137,8 +141,8 @@ class DataSources(metaclass=Singleton):
         return self._data[doc][identifier]
 
     def get_stats(self, doc, countername: str, instance: tuple, collection=None):
-        """Returns the total number of points and the mean number of points per update of the line.
         """
+        Returns the total number of points and the mean number of points per update of the line"""
         identifier = (countername, instance, collection)
         self.get_data(doc, countername, instance, collection)
 
@@ -155,6 +159,13 @@ class DataSources(metaclass=Singleton):
         else:
             return 0, 0
 
+    def get_collection(self, collection):
+        """Helper function to get the pointer to the current collection (live or most recent)."""
+        if not collection:
+            return self.get_live_collection()
+        else:
+            return collection
+
     def get_live_collection(self):
         """"""
         collection = None
@@ -165,7 +176,12 @@ class DataSources(metaclass=Singleton):
         return collection
 
     def listen_to(
-        self, callback, doc, countername: str, instance: tuple, collection=None,
+        self,
+        callback,
+        doc,
+        countername: str,
+        instance: tuple,
+        collection=None,
     ):
         """Whenever a data source is updated, the callback gets called."""
         self.get_data(doc, countername, instance, collection)

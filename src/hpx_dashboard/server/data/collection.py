@@ -41,8 +41,12 @@ class _NumpyArrayList:
             new_data[: self.size] = self.data
             self.data = new_data
 
-        self.data[self.size] = np.array(row, dtype=self.dtype)
+        for i, element in enumerate(row):
+            self.data[self.size, i] = element
         self.size += 1
+
+    def get(self):
+        return self.data[: self.size, :]
 
 
 def format_instance(locality_id, pool=None, thread_id="total"):
@@ -68,9 +72,10 @@ def from_instance(instance):
 
 
 class DataCollection:
-    """The data collection class provides an interface for storing and reading hpx performance data.
-
     """
+    The data collection class provides an interface for storing and reading hpx performance data"""
+
+    _id_counter = 0
 
     def __init__(self):
         self.start_time = None
@@ -79,6 +84,12 @@ class DataCollection:
         self.data = {}
         # Task data is also used to identify all available instances
         self.task_data = {}
+
+        # Variables for the growing numpy array
+        self._line_to_hash = {}
+        self._numpy_data = _NumpyArrayList(3, "float")
+        self._id = self._id_counter
+        self._id_counter += 1
 
     def _add_instance_name(self, locality_id, pool=None, thread_id=None) -> None:
         """Adds the instance name to the list of instance names stored in the class."""
@@ -97,7 +108,7 @@ class DataCollection:
     def _get_instance_infos(self, full_instance: str) -> None:
         """"""
         if full_instance.startswith("/"):
-            return None, None, None, None
+            return None, None, None
 
         instance_split = full_instance.split("/")
         locality_id = instance_split[0].split("#")[1]
@@ -177,6 +188,12 @@ class DataCollection:
         except ValueError:
             value = str(value)
 
+        # Growing numpy array
+        key = (self._id, name, instance_name)
+        if key not in self._line_to_hash:
+            self._line_to_hash[key] = float(len(self._line_to_hash.keys()))
+        self._numpy_data.append([timestamp, value, self._line_to_hash[key]])
+
         line = [instance_name, int(sequence_number), timestamp, timestamp_unit, value, value_unit]
         if instance_name not in self.data[name]:
             self.data[name][instance_name] = []
@@ -203,26 +220,28 @@ class DataCollection:
         else:
             return np.array(self.task_data[locality][None][worker][index:], dtype="O")
 
-    def get_data(self, fullname: str, instance_name: tuple, index=0):
+    def get_data(self, countername: str, instance_name: tuple, index=0):
         """"""
-        if fullname not in self.data:
+        if countername not in self.data:
             return np.array([])
 
-        if instance_name in self.data[fullname]:
-            if index >= len(self.data[fullname][instance_name]):
+        if instance_name in self.data[countername]:
+            if index >= len(self.data[countername][instance_name]):
                 return np.array([])
 
-            return np.array(self.data[fullname][instance_name][index:], dtype="O")
+            return np.array(self.data[countername][instance_name][index:], dtype="O")
         else:
             return np.array([])
+
+    def get_numpy_data(self):
+        return self._numpy_data.get()
 
     def get_localities(self):
         """Returns the list of available localities that are currently in the collection"""
         return list(self.task_data.keys())
 
     def get_pools(self, locality):
-        """Returns the list of available pools in a particular locality.
-        """
+        """Returns the list of available pools in a particular locality."""
         if locality in self.task_data:
             pools = []
             for pool in self.task_data[locality].keys():
@@ -262,3 +281,12 @@ class DataCollection:
     def set_counter_infos(self, counter_info):
         """Sets the counter infos of the collection."""
         self.counter_info = counter_info
+
+    def line_to_hash(self, countername, instance):
+        """Returns the associated hashed countername and instance stored in the object."""
+
+        key = (self._id, countername, instance)
+        if key not in self._line_to_hash:
+            self._line_to_hash[key] = float(len(self._line_to_hash.keys()))
+
+        return self._line_to_hash[key]

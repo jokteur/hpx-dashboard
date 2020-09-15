@@ -14,6 +14,7 @@ from collections import OrderedDict
 from bokeh.plotting import Figure
 from bokeh.layouts import column
 from bokeh.models import Legend, LegendItem
+import pandas as pd
 
 from ..data import DataSources
 from ..widgets import empty_placeholder
@@ -41,8 +42,6 @@ class TimeSeries(BaseElement):
 
         # For shaded data
         self._data = []
-        self._x = []
-        self._y = []
         self._colors = []
         self._color_ids = OrderedDict()
 
@@ -128,12 +127,8 @@ class TimeSeries(BaseElement):
     def update(self):
         if self._reshade and self._is_shaded:
             self._data = []
-            self._x = []
-            self._y = []
             for key, ds in self._data_sources.items():
                 self._data.append(ds["data_source"].data)
-                self._x.append(ds["x_name"])
-                self._y.append(ds["y_name"])
 
         # Rebuild the figure in case the user switched from shaded or vice-versa
         if self._rebuild_figure:
@@ -142,24 +137,48 @@ class TimeSeries(BaseElement):
             self._reshade = False
 
         if self._reshade and self._is_shaded:
+            self._build_shaded_data()
             self._shaded_fig.set_data(
-                self._data, self._x, self._y, self._colors, self._x_range, self._y_range,
+                self._data,
+                self._colors,
+                self._x_range,
+                self._y_range,
             )
             self._reshade = False
 
         # Get statistics of lines
-        totals = []
-        means = []
-        for key in self._data_sources.keys():
-            countername, instance, collection, pretty_name = key
-            total, mean = DataSources().get_stats(self._doc, countername, instance, collection)
-            totals.append(total)
-            means.append(mean)
+        if self._print_stats:
+            totals = []
+            means = []
+            for key in self._data_sources.keys():
+                countername, instance, collection, _ = key
+                total, mean = DataSources().get_stats(self._doc, countername, instance, collection)
+                totals.append(total)
+                means.append(mean)
 
-        if means and self._print_stats:
-            total = sum(totals)
-            mean = sum(means)
-            print(f"Total: {total}, mean: {mean}, {len(totals)}")
+            if means:
+                total = sum(totals)
+                mean = sum(means)
+                print(f"Total: {total}, mean: {mean}, {len(totals)}")
+
+    def _build_shaded_data(self):
+        self._data = []
+        dataframes = {}
+        for _, _, collection, _ in self._data_sources.keys():
+            collection = DataSources().get_collection(collection)
+            if collection:
+                df = pd.DataFrame(collection.get_numpy_data(), copy=False)
+                df.rename(columns={0: "x", 1: "y", 2: "name"}, inplace=True)
+                dataframes[collection] = df
+
+        for countername, instance, collection, _ in self._data_sources.keys():
+            collection = DataSources().get_collection(collection)
+            if collection:
+                key = collection.line_to_hash(countername, instance)
+                df = dataframes[collection]
+                self._data.append(df[df["name"] == key])
+            else:
+                self._data.append({"x": [0], "y": [0]})
 
     def _build_legend(self):
         legend_items = []
@@ -180,8 +199,12 @@ class TimeSeries(BaseElement):
             self._glyphs.clear()
 
         if self._is_shaded:
+            self._build_shaded_data()
             self._shaded_fig = ShadedTimeSeries(
-                self._doc, self._data, self._x, self._y, self._colors, **self._defaults_opts,
+                self._doc,
+                self._data,
+                self._colors,
+                **self._defaults_opts,
             )
             self._figure = self._shaded_fig.layout()
         else:
