@@ -11,6 +11,7 @@ Welcome to HPX dashboard's documentation!
    :caption: Contents:
 
    quickstart
+   _source/modules
 
 
 Indices and tables
