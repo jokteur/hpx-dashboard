@@ -114,6 +114,7 @@ class TimeSeries(BaseElement):
         key = (countername, instance, collection, pretty_name)
         if key in self._data_sources:
             del self._data_sources[key]
+        if key in self._glyphs:
             del self._glyphs[key]
         if not hold_update:
             self._make_figure()

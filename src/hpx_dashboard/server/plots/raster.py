@@ -2,7 +2,7 @@ import time
 
 from bokeh.models import ColumnDataSource
 from bokeh.plotting import figure
-from bokeh.events import Reset
+from bokeh.events import Reset, MouseWheel, PanEnd
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -140,15 +140,12 @@ def get_ranges(data):
     return x_range, y_range
 
 
+def _is_equal(x, y, epsilon=1e-6):
+    return abs(x - y) < epsilon
+
+
 class ShadedTimeSeries(BaseElement):
     """"""
-
-    # Variable to correctly update the range if necessary
-    _keep_x_range = False
-    _keep_y_range = False
-    _last_reset = 0
-
-    _num_update = 0
 
     def __init__(
         self,
@@ -163,6 +160,14 @@ class ShadedTimeSeries(BaseElement):
 
         self._kwargs = kwargs
         self._throttledEvent = ThrottledEvent(doc, 50)
+
+        # Variable to correctly update the range if necessary
+        self._keep_x_range = False
+        self._keep_y_range = False
+        self._last_reset = 0
+
+        self._num_update = True
+        self._update = False
 
         # When the user resets the plot, sometimes the bokeh range has not been updated
         # before self._update() is called. self._update would then try to reset back the
@@ -206,6 +211,9 @@ class ShadedTimeSeries(BaseElement):
         )
 
         self._root = figure(**self._defaults_opts)
+        self._root.on_event(MouseWheel, self._freeze_ranges)
+        self._root.on_event(PanEnd, self._freeze_ranges)
+
         self._root.x_range.range_padding = self._root.y_range.range_padding = 0
         self._root.image_rgba(image="img", source=self._ds, x="x", y="y", dw="dw", dh="dh")
         self._root.on_event(Reset, self._reset_fct)
@@ -243,41 +251,17 @@ class ShadedTimeSeries(BaseElement):
         self._keep_x_range = self._keep_y_range = False
         self._last_reset = time.time()
 
+    def _freeze_ranges(self, *args):
+        if self._root.toolbar.active_drag:
+            self._keep_x_range = self._keep_y_range = True
+
     def update(self):
-        """"""
-        # Dirty hack because for some reason the plot range does not get
-        # updated after the first update
-        if self._num_update == 1:
-            return
-
-        if time.time() - self._last_reset < self._cooldown_interval / 1000:
-            return
-
-        # x_start = float(self._ds.data["x"][0])
-        # x_end = float(x_start + self._ds.data["dw"][0])
-        # y_start = float(self._ds.data["y"][0])
-        # y_end = float(y_start + self._ds.data["dh"][0])
-
-        # x_range = (self._root.x_range.start, self._root.x_range.end)
-        # y_range = (self._root.y_range.start, self._root.y_range.end)
-
-        # old_x_range = (x_start, x_end)
-        # old_y_range = (y_start, y_end)
-
-        # reshade = False
-
-        # if not _compare_ranges(x_range, old_x_range) and self._root.x_range.start:
-        #     self._current_x_range = x_range
-        #     self._keep_x_range = True
-        #     reshade = True
-
-        # if not _compare_ranges(y_range, old_y_range) and self._root.y_range.start:
-        #     self._current_y_range = y_range
-        #     self._keep_y_range = True
-        #     reshade = True
-
-        # if reshade:
-        #     self._reshade(True)
+        if self._keep_x_range or self._keep_y_range:
+            x_range = self._root.x_range
+            y_range = self._root.y_range
+            self._current_x_range = (x_range.start, x_range.end)
+            self._current_y_range = (y_range.start, y_range.end)
+            self._reshade(True)
 
     def set_data(
         self,
