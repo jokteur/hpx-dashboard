@@ -11,10 +11,13 @@
 """
 
 from typing import Union
+import hashlib
 
 import numpy as np
+import pandas as pd
 
 from ...common.logger import Logger
+from ...common.constants import task_cmap, task_plot_margin
 
 logger = Logger()
 
@@ -82,8 +85,11 @@ class DataCollection:
         self.end_time = None
         self.counter_info = {}
         self.data = {}
-        # Task data is also used to identify all available instances
-        self.task_data = {}
+
+        # Task data
+        self._task_data = {}
+
+        self.instances = {}
 
         # Variables for the growing numpy array
         self._line_to_hash = {}
@@ -96,14 +102,14 @@ class DataCollection:
         if not locality_id:
             return
 
-        if locality_id not in self.task_data:
-            self.task_data[str(locality_id)] = {}
+        if locality_id not in self.instances:
+            self.instances[str(locality_id)] = {}
 
-        if pool not in self.task_data[locality_id]:
-            self.task_data[locality_id][pool] = {}
+        if pool not in self.instances[locality_id]:
+            self.instances[locality_id][pool] = {}
 
-        if thread_id not in self.task_data[locality_id][pool]:
-            self.task_data[locality_id][pool][thread_id] = []
+        if thread_id not in self.instances[locality_id][pool]:
+            self.instances[locality_id][pool][thread_id] = []
 
     def _get_instance_infos(self, full_instance: str) -> None:
         """"""
@@ -130,10 +136,56 @@ class DataCollection:
 
         return locality_id, pool, thread_id
 
-    def add_task_data(self, locality, thread, name, begin, end):
+    def add_task_data(self, locality, thread_id: int, name, begin: float, end: float):
         """"""
-        self._add_instance_name(locality, thread_id=thread)
-        self.task_data[locality][None][thread].append([name, float(begin), float(end)])
+        self._add_instance_name(locality, thread_id=thread_id)
+
+        if locality not in self._task_data:
+            self._task_data[locality] = {
+                "data": {},
+                "verts": _NumpyArrayList(3, "float"),
+                "tris": _NumpyArrayList(3, np.int),
+                "hashmap": {},
+                "names": set(),
+            }
+
+        thread_id = float(thread_id)
+        begin = float(begin) - 6651347
+        end = float(end) - 6651347
+
+        if thread_id not in self._task_data[locality]["data"]:
+            self._task_data[locality]["data"][thread_id] = _NumpyArrayList(3, "float")
+
+        top = thread_id + 1 / 2 * (1 - task_plot_margin)
+        bottom = thread_id - 1 / 2 * (1 - task_plot_margin)
+
+        if name not in self._task_data[locality]["hashmap"]:
+            self._task_data[locality]["hashmap"][name] = len(
+                self._task_data[locality]["hashmap"].keys()
+            )
+
+        name_hash = self._task_data[locality]["hashmap"][name]
+        color_hash = int(hashlib.md5(name.encode("utf-8")).hexdigest(), 16) % len(task_cmap)
+
+        self._task_data[locality]["data"][thread_id].append([begin, end, name_hash])
+
+        idx = len(self._task_data[locality]["verts"].get())
+
+        # Bottom left pt
+        self._task_data[locality]["verts"].append([begin, bottom, color_hash])
+        # Top left pt
+        self._task_data[locality]["verts"].append([begin, top, color_hash])
+        # Top right pt
+        self._task_data[locality]["verts"].append([end, top, color_hash])
+        # Bottom right pt
+        self._task_data[locality]["verts"].append([end, bottom, color_hash])
+
+        # Triangles
+        self._task_data[locality]["tris"].append([idx, idx + 1, idx + 2])
+        self._task_data[locality]["tris"].append([idx, idx + 2, idx + 3])
+
+        self._task_data[locality]["hashmap"][name] = name_hash
+        self._task_data[locality]["names"].add(name)
 
     def add_line(
         self,
@@ -204,21 +256,33 @@ class DataCollection:
         """Returns the list of available counters that are currently in the collection."""
         return list(self.data.keys())
 
-    def get_task_data(self, locality, worker, index=0):
+    def get_task_mesh_data(self, locality):
         """"""
-        if locality not in self.task_data:
-            return np.array([])
+        if locality not in self._task_data:
+            return [[0, 0, 0]], [[0, 0, 0]], ((0, 1), (0, 1))
 
-        if None not in self.task_data[locality]:
-            return np.array([])
+        # Find the plot ranges
+        max_worker_id = 0
+        time_min, time_max = np.finfo(float).max, np.finfo(float).min
+        for worker_id, data in self._task_data[locality]["data"].items():
+            if worker_id > max_worker_id:
+                max_worker_id = worker_id
 
-        if worker not in self.task_data[locality][None]:
-            return np.array([])
+            data = data.get()
 
-        if index >= len(self.task_data[locality][None][worker]):
-            return np.array([])
-        else:
-            return np.array(self.task_data[locality][None][worker][index:], dtype="O")
+            # We consider that per worker, the tasks are added in order
+            if data[0, 0] < time_min:
+                time_min = data[0, 0]
+            if data[-1, 1] > time_max:
+                time_max = data[-1, 1]
+
+        vertices = pd.DataFrame(self._task_data[locality]["verts"].get(), columns=["x", "y", "z"])
+        triangles = pd.DataFrame(
+            self._task_data[locality]["tris"].get().astype(int), columns=["v0", "v1", "v2"]
+        )
+        x_range = (time_min, time_max)
+        y_range = (-1 + task_plot_margin, max_worker_id + 1 / 2 * (1 - task_plot_margin))
+        return vertices, triangles, (x_range, y_range)
 
     def get_data(self, countername: str, instance_name: tuple, index=0):
         """"""
@@ -236,15 +300,27 @@ class DataCollection:
     def get_numpy_data(self):
         return self._numpy_data.get()
 
+    def get_task_hashname(self, locality, name):
+        if name in self._task_data[locality]["hashmap"]:
+            return self._task_data[locality]["hashmap"][name]
+        else:
+            return -1
+
+    def get_task_names(self, locality):
+        if locality not in self._task_data:
+            return set()
+
+        return self._task_data[locality]["names"]
+
     def get_localities(self):
         """Returns the list of available localities that are currently in the collection"""
-        return list(self.task_data.keys())
+        return list(self.instances.keys())
 
     def get_pools(self, locality):
         """Returns the list of available pools in a particular locality."""
-        if locality in self.task_data:
+        if locality in self.instances:
             pools = []
-            for pool in self.task_data[locality].keys():
+            for pool in self.instances[locality].keys():
                 pools.append(pool)
             return pools
         else:
@@ -253,10 +329,10 @@ class DataCollection:
     def get_num_worker_threads(self, locality):
         """Returns the number of worker threads in a particular locality"""
         num = 0
-        if locality in self.task_data:
-            for pool in self.task_data[locality].keys():
+        if locality in self.instances:
+            for pool in self.instances[locality].keys():
                 worker_list = [
-                    int(idx) for idx in self.task_data[locality][pool].keys() if idx != "total"
+                    int(idx) for idx in self.instances[locality][pool].keys() if idx != "total"
                 ]
                 if worker_list:
                     num += max(worker_list) + 1
@@ -264,9 +340,9 @@ class DataCollection:
 
     def get_worker_threads(self, locality, pool=None):
         """Returns the list of worker threads in a particular locality and pool"""
-        if locality in self.task_data:
-            if pool in self.task_data[locality]:
-                return [idx for idx in self.task_data[locality][pool].keys() if idx != "total"]
+        if locality in self.instances:
+            if pool in self.instances[locality]:
+                return [idx for idx in self.instances[locality][pool].keys() if idx != "total"]
 
         return []
 

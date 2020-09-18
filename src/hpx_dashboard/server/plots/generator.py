@@ -123,6 +123,7 @@ class TimeSeries(BaseElement):
         """"""
         self._data_sources.clear()
         self._glyphs.clear()
+        self._colors = []
         self._make_figure()
 
     def update(self):

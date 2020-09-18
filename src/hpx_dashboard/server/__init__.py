@@ -14,4 +14,5 @@ Logger("hpx-dashboard-server")
 
 
 # Trigger compilation with datashader
-raster.shade({"x": [0], "y": [0]}, plot_width=800, plot_height=400)
+raster.shade_line({"x": [0], "y": [0]}, plot_width=800, plot_height=400)
+raster.shade_mesh([[0, 0, 0]], [[0, 0, 0]], plot_width=800, plot_height=400)
