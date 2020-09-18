@@ -94,7 +94,10 @@ class CustomCounterWidget(BaseWidget):
         plots_text = [f"Plot {i + 1}" for i, _ in enumerate(self._plots)]
         self._line_counter += 1
         self._lines[self._line_counter] = SelectCustomLine(
-            self._doc, self._line_counter, plots_text, self._remove_line,
+            self._doc,
+            self._line_counter,
+            plots_text,
+            self._remove_line,
         )
         if update:
             self._update_line_widget()
@@ -129,7 +132,6 @@ class CustomCounterWidget(BaseWidget):
                 self._doc,
                 refresh_rate=self._refresh_rate,
                 title=f"Plot {len(self._plots) + 1}",
-                print_stats=True,
                 **opts,
             )
         )
@@ -143,7 +145,7 @@ class CustomCounterWidget(BaseWidget):
     def to_json(self):
         """Converts the state of the widget (number of plots, lines) to json"""
         json_dict = {"num_plots": len(self._plots), "lines": []}
-        for plot_id, collection, countername, instance, name in self._lines_info:
+        for plot_id, _, countername, instance, name in self._lines_info:
             json_dict["lines"].append(
                 {"plot_id": plot_id, "countername": countername, "instance": instance, "name": name}
             )

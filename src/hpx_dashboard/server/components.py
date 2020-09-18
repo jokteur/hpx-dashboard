@@ -43,7 +43,7 @@ def scheduler(doc, notifier):
     scheduler_plot = TimeSeries(
         doc, shade=True, title="Scheduler utilization", y_axis_label="Utilization (%)"
     )
-    counter = "scheduler/utilization/instantaneous"
+    counter = "threads/count/instantaneous/pending"
     instance = format_instance("0")
     pretty_name = "Scheduler utilization"
     scheduler_plot.add_line(
