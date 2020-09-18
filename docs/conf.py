@@ -18,17 +18,10 @@
 # -- Project information -----------------------------------------------------
 
 # Version tag from setuptools_scm
-from pkg_resources import get_distribution
-
-
-full_version = get_distribution("hpx-dashboard-agent").version
 
 project = "HPX dashboard"
 copyright = "2020, ETH Zurich"
 author = "ETH Zurich"
-
-# The short X.Y version
-version = ".".join(full_version.split(".")[:2])
 
 # -- General configuration ---------------------------------------------------
 
