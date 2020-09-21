@@ -146,12 +146,13 @@ class DataCollection:
                 "verts": _NumpyArrayList(3, "float"),
                 "tris": _NumpyArrayList(3, np.int),
                 "hashmap": {},
-                "names": set(),
+                "min": float(begin),
+                "names": set(),  # Not the best solution, times should be normalized at entry
             }
 
         thread_id = float(thread_id)
-        begin = float(begin) - 6651347
-        end = float(end) - 6651347
+        begin = float(begin) - self._task_data[locality]["min"]
+        end = float(end) - self._task_data[locality]["min"]
 
         if thread_id not in self._task_data[locality]["data"]:
             self._task_data[locality]["data"][thread_id] = _NumpyArrayList(3, "float")
@@ -281,7 +282,7 @@ class DataCollection:
             self._task_data[locality]["tris"].get().astype(int), columns=["v0", "v1", "v2"]
         )
         x_range = (time_min, time_max)
-        y_range = (-1 + task_plot_margin, max_worker_id + 1 / 2 * (1 - task_plot_margin))
+        y_range = (-1 / 2, max_worker_id + 1 / 2 * (1 - task_plot_margin))
         return vertices, triangles, (x_range, y_range)
 
     def get_data(self, countername: str, instance_name: tuple, index=0):
