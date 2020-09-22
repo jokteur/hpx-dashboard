@@ -20,6 +20,7 @@ from tornado.ioloop import IOLoop
 
 from ..common.logger import Logger
 from .tcp_listener import TCP_Server, handle_response
+from .worker import worker_thread, WorkerQueue
 from .app import bk_server
 
 
@@ -56,17 +57,23 @@ def server(argv):
     server = bk_server(io_loop=IOLoop().current(), port=int(opt.bokeh_port))
     server.start()
 
-    queue = Queue()
-    tcp_server = TCP_Server(queue=queue)
+    tcp_queue = Queue()
+    tcp_server = TCP_Server(queue=tcp_queue)
     tcp_server.listen(opt.listen_port)
-    tcp_thread = threading.Thread(target=lambda: handle_response(queue))
+    tcp_thread = threading.Thread(target=lambda: handle_response(tcp_queue))
     tcp_thread.daemon = True
     tcp_thread.start()
+
+    work_queue = WorkerQueue()
+    work_thread = threading.Thread(target=lambda: worker_thread(work_queue))
+    work_thread.daemon = True
+    work_thread.start()
 
     logger.info(f"Bokeh server started on http://localhost:{opt.bokeh_port}")
     server.io_loop.start()
 
     tcp_thread.join()
+    work_thread.join()
 
 
 def main():

@@ -88,6 +88,7 @@ class DataCollection:
 
         # Task data
         self._task_data = {}
+        self._task_id = 0
 
         self.instances = {}
 
@@ -142,50 +143,52 @@ class DataCollection:
 
         if locality not in self._task_data:
             self._task_data[locality] = {
-                "data": {},
-                "verts": _NumpyArrayList(3, "float"),
+                "data": _NumpyArrayList(4, "float"),
+                "verts": _NumpyArrayList(4, "float"),
                 "tris": _NumpyArrayList(3, np.int),
-                "hashmap": {},
-                "names": set(),
+                "name_list": [],
+                "name_set": set(),
+                "min": np.finfo(float).max,
+                "max": np.finfo(float).min,
+                "workers": set(),
+                "min_time": float(begin),
             }
 
         thread_id = float(thread_id)
-        begin = float(begin) - 6651347
-        end = float(end) - 6651347
+        begin = float(begin) - self._task_data[locality]["min_time"]
+        end = float(end) - self._task_data[locality]["min_time"]
 
-        if thread_id not in self._task_data[locality]["data"]:
-            self._task_data[locality]["data"][thread_id] = _NumpyArrayList(3, "float")
+        if begin < self._task_data[locality]["min"]:
+            self._task_data[locality]["min"] = begin
+        if end > self._task_data[locality]["max"]:
+            self._task_data[locality]["max"] = end
 
         top = thread_id + 1 / 2 * (1 - task_plot_margin)
         bottom = thread_id - 1 / 2 * (1 - task_plot_margin)
 
-        if name not in self._task_data[locality]["hashmap"]:
-            self._task_data[locality]["hashmap"][name] = len(
-                self._task_data[locality]["hashmap"].keys()
-            )
+        self._task_data[locality]["name_list"].append(name)
+        self._task_data[locality]["name_set"].add(name)
+        self._task_data[locality]["workers"].add(thread_id)
 
-        name_hash = self._task_data[locality]["hashmap"][name]
         color_hash = int(hashlib.md5(name.encode("utf-8")).hexdigest(), 16) % len(task_cmap)
 
-        self._task_data[locality]["data"][thread_id].append([begin, end, name_hash])
+        self._task_data[locality]["data"].append([thread_id, begin, end, self._task_id])
 
         idx = len(self._task_data[locality]["verts"].get())
 
         # Bottom left pt
-        self._task_data[locality]["verts"].append([begin, bottom, color_hash])
+        self._task_data[locality]["verts"].append([begin, bottom, color_hash, self._task_id])
         # Top left pt
-        self._task_data[locality]["verts"].append([begin, top, color_hash])
+        self._task_data[locality]["verts"].append([begin, top, color_hash, self._task_id])
         # Top right pt
-        self._task_data[locality]["verts"].append([end, top, color_hash])
+        self._task_data[locality]["verts"].append([end, top, color_hash, self._task_id])
         # Bottom right pt
-        self._task_data[locality]["verts"].append([end, bottom, color_hash])
+        self._task_data[locality]["verts"].append([end, bottom, color_hash, self._task_id])
+        self._task_id += 1
 
         # Triangles
         self._task_data[locality]["tris"].append([idx, idx + 1, idx + 2])
         self._task_data[locality]["tris"].append([idx, idx + 2, idx + 3])
-
-        self._task_data[locality]["hashmap"][name] = name_hash
-        self._task_data[locality]["names"].add(name)
 
     def add_line(
         self,
@@ -262,25 +265,17 @@ class DataCollection:
             return [[0, 0, 0]], [[0, 0, 0]], ((0, 1), (0, 1))
 
         # Find the plot ranges
-        max_worker_id = 0
-        time_min, time_max = np.finfo(float).max, np.finfo(float).min
-        for worker_id, data in self._task_data[locality]["data"].items():
-            if worker_id > max_worker_id:
-                max_worker_id = worker_id
+        max_worker_id = max(self._task_data[locality]["workers"])
+        min_time = self._task_data[locality]["min"]
+        max_time = self._task_data[locality]["max"]
 
-            data = data.get()
-
-            # We consider that per worker, the tasks are added in order
-            if data[0, 0] < time_min:
-                time_min = data[0, 0]
-            if data[-1, 1] > time_max:
-                time_max = data[-1, 1]
-
-        vertices = pd.DataFrame(self._task_data[locality]["verts"].get(), columns=["x", "y", "z"])
+        vertices = pd.DataFrame(
+            self._task_data[locality]["verts"].get(), columns=["x", "y", "z", "patch_id"]
+        )
         triangles = pd.DataFrame(
             self._task_data[locality]["tris"].get().astype(int), columns=["v0", "v1", "v2"]
         )
-        x_range = (time_min, time_max)
+        x_range = (min_time, max_time)
         y_range = (-1 + task_plot_margin, max_worker_id + 1 / 2 * (1 - task_plot_margin))
         return vertices, triangles, (x_range, y_range)
 
@@ -300,17 +295,16 @@ class DataCollection:
     def get_numpy_data(self):
         return self._numpy_data.get()
 
-    def get_task_hashname(self, locality, name):
-        if name in self._task_data[locality]["hashmap"]:
-            return self._task_data[locality]["hashmap"][name]
-        else:
-            return -1
+    def get_task_data(self, locality):
+        if locality not in self._task_data:
+            return []
+        return self._task_data[locality]["data"].get(), self._task_data[locality]["name_list"]
 
     def get_task_names(self, locality):
         if locality not in self._task_data:
             return set()
 
-        return self._task_data[locality]["names"]
+        return self._task_data[locality]["name_set"]
 
     def get_localities(self):
         """Returns the list of available localities that are currently in the collection"""

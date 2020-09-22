@@ -1,9 +1,10 @@
 import time
+from functools import partial
 import colorcet
 
-from bokeh.models import ColumnDataSource
+from bokeh.models import ColumnDataSource, HoverTool
 from bokeh.plotting import figure
-from bokeh.events import Reset, MouseWheel, PanEnd
+from bokeh.events import Reset, MouseWheel, PanEnd, MouseMove
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -11,7 +12,15 @@ import datashader as ds
 import datashader.transfer_functions as tf
 
 from .base import BaseElement, ThrottledEvent, get_figure_options
+from ..utils import format_time
+from ..worker import WorkerQueue
 from ...common.constants import task_cmap
+
+empty_task_mesh = [
+    [[0, 0, 0, 0]],
+    [[0, 0, 0]],
+    ((0, 1), (0, 1)),
+]
 
 
 def _is_intersecting(interval1, interval2):
@@ -55,7 +64,7 @@ def _normalize_ranges(x_range, y_range):
 
 
 def _compare_ranges(range1, range2, epsilon=1e-3):
-    """Returns true if the both range are close enough (within epsilon)."""
+    """Returns true if the both range are close enough (within a relative epsilon)."""
     if not range1[0] or not range2[0]:
         return False
     return abs(range1[0] - range2[0]) < epsilon and abs(range1[1] - range2[1]) < epsilon
@@ -67,15 +76,33 @@ def shade_mesh(vertices, triangles, cmap=colorcet.rainbow, **kwargs):
     if "plot_width" not in kwargs or "plot_height" not in kwargs:
         raise ValueError("Please provide plot_width and plot_height for the canvas.")
 
+    import time
+
+    t = time.time()
+
     if not isinstance(vertices, pd.DataFrame):
-        vertices = pd.DataFrame(vertices, columns=["x", "y", "z"])
+        vertices = pd.DataFrame(vertices, columns=["x", "y", "z", "patch_id"], copy=False)
 
     if not isinstance(triangles, pd.DataFrame):
-        triangles = pd.DataFrame(triangles, columns=["v0", "v1", "v2"])
+        triangles = pd.DataFrame(triangles, columns=["v0", "v1", "v2"], copy=False)
+
+    t1 = time.time() - t
 
     cvs = ds.Canvas(**kwargs)
-    agg = cvs.trimesh(vertices, triangles, interpolate="nearest")
-    return tf.shade(agg, cmap=cmap, how="linear", span=[0, len(cmap)])
+    t = time.time()
+    img = cvs.trimesh(vertices, triangles, interpolate="nearest")
+    t2 = time.time() - t
+
+    t = time.time()
+    summary = ds.summary(id_info=ds.max("patch_id"))
+    summary.column = "z"
+    hover_agg = cvs.trimesh(vertices, triangles, agg=summary)
+    t3 = time.time() - t
+    t = time.time()
+    res = tf.shade(img, cmap=cmap, how="linear", span=[0, len(cmap)]), hover_agg
+    t4 = time.time() - t
+    print(f"{t1:0.04}, {t2:0.04}, {t3:0.04}, {t4:0.04}")
+    return res
 
 
 def shade_line(data, colors=None, **kwargs):
@@ -182,6 +209,8 @@ class ShadedPlot(BaseElement):
         self._keep_range = False
 
         self._current_x_range, self._current_y_range = self._calculate_ranges()
+        self._bokeh_x_range, self._bokeh_y_range = self._current_x_range, self._current_y_range
+        self._num_range_updates = 0
 
         self._defaults_opts = dict(plot_width=800, plot_height=300, title="")
 
@@ -225,10 +254,22 @@ class ShadedPlot(BaseElement):
         if self._keep_range:
             x_range = self._root.x_range
             y_range = self._root.y_range
-            if x_range.start:
-                self._current_x_range = (x_range.start, x_range.end)
-            if y_range.start:
-                self._current_y_range = (y_range.start, y_range.end)
+            x_range = (x_range.start, x_range.end)
+            y_range = (y_range.start, y_range.end)
+
+            if x_range == self._bokeh_x_range and x_range == self._bokeh_x_range:
+                self._num_range_updates += 1
+            else:
+                self._num_range_updates = 0
+            self._bokeh_x_range = x_range
+            self._bokeh_y_range = y_range
+            if self._num_range_updates > 2:
+                return
+
+            if x_range[0]:
+                self._current_x_range = x_range
+            if y_range[0]:
+                self._current_y_range = y_range
             self._reshade(True)
 
     def set_range(self, x_range=None, y_range=None):
@@ -248,16 +289,24 @@ class ShadedTaskPlot(ShadedPlot):
         vertices,
         triangles,
         data_ranges,
+        names,
+        times,
         refresh_rate=500,
         **kwargs,
     ):
         self._vertices = vertices
         self._triangles = triangles
         self._data_ranges = data_ranges
+        self._names = names
+        self._times = times
+        self._hovered_mesh = empty_task_mesh[0:2]  # For highlighting the hovered task on the plot
+        self._last_hovered = -1
+
+        self._throttled_mouseEvent = ThrottledEvent(doc)
 
         super().__init__(doc, refresh_rate, **kwargs)
 
-        img = shade_mesh(
+        self._img, self._hover_agg = shade_mesh(
             vertices,
             triangles,
             task_cmap,
@@ -268,32 +317,97 @@ class ShadedTaskPlot(ShadedPlot):
         )
         self._ds = ColumnDataSource(
             {
-                "img": [img.values],
+                "img": [self._img.values],
                 "dw": [self._current_x_range[1] - self._current_x_range[0]],
                 "dh": [self._current_y_range[1] - self._current_y_range[0]],
                 "x": [self._current_x_range[0]],
                 "y": [self._current_y_range[0]],
             }
         )
+
+        # When the user hovers with the mouse on a task, it becomes highlighted
+        self._hovered_img, _ = shade_mesh(
+            *self._hovered_mesh,
+            "black",
+            plot_width=self._defaults_opts["plot_width"],
+            plot_height=self._defaults_opts["plot_height"],
+            x_range=self._current_x_range,
+            y_range=self._current_y_range,
+        )
+        self._hovered_ds = ColumnDataSource(
+            {
+                "img": [self._hovered_img.values],
+                "dw": [self._current_x_range[1] - self._current_x_range[0]],
+                "dh": [self._current_y_range[1] - self._current_y_range[0]],
+                "x": [self._current_x_range[0]],
+                "y": [self._current_y_range[0]],
+            }
+        )
+
+        self._hover_tool = HoverTool()
+        self._root.on_event(MouseMove, self._mouse_move_event)
+        self._root.add_tools(self._hover_tool)
         self._root.image_rgba(image="img", source=self._ds, x="x", y="y", dw="dw", dh="dh")
+        self._root.image_rgba(image="img", source=self._hovered_ds, x="x", y="y", dw="dw", dh="dh")
 
     def _calculate_ranges(self):
         return self._data_ranges
 
-    def _reshade(self, immediate=False):
+    def _mouse_move_event(self, event):
+        def update():
+            nonlocal event
+
+            # Convert plot coordinate to image coordinate
+            x = (
+                int(
+                    self._defaults_opts["plot_width"]
+                    * (event.x - self._current_x_range[0])
+                    / (self._current_x_range[1] - self._current_x_range[0])
+                )
+                - 1
+            )
+            y = (
+                int(
+                    self._defaults_opts["plot_height"]
+                    * (event.y - self._current_y_range[0])
+                    / (self._current_y_range[1] - self._current_y_range[0])
+                )
+                - 1
+            )
+
+            shape = self._hover_agg["id_info"].values.shape
+            tooltip = False
+            id_patch = -1
+            if x < shape[1] and y < shape[0]:
+                id_patch = self._hover_agg["id_info"].values[y, x]
+                if not np.isnan(id_patch):
+                    id_patch = int(id_patch)
+                    duration = format_time(self._times[id_patch])
+                    self._hover_tool.tooltips = f"""Name: <em>{self._names[id_patch]}</em><br />
+                        Duration: <bold>{duration}</bold>"""
+
+                    # Generate mesh for hovered image
+                    self._hovered_mesh[0] = self._vertices[id_patch * 4 : (id_patch + 1) * 4]
+                    self._hovered_mesh[1] = [[0, 1, 2], [0, 2, 3]]
+                    tooltip = True
+
+            if not tooltip:
+                self._hover_tool.tooltips = ""
+                self._hovered_mesh = empty_task_mesh[0:2]
+
+            id_patch = str(id_patch)
+
+            if id_patch != self._last_hovered:
+                self._reshade(only_hover=True)
+                self._last_hovered = id_patch
+
+        self._throttled_mouseEvent.add_event(update)
+
+    def _reshade(self, immediate=False, only_hover=False):
         """"""
 
-        def gen():
-            img = shade_mesh(
-                self._vertices,
-                self._triangles,
-                task_cmap,
-                plot_width=self._defaults_opts["plot_width"],
-                plot_height=self._defaults_opts["plot_height"],
-                x_range=self._current_x_range,
-                y_range=self._current_y_range,
-            )
-            self._ds.data = {
+        def push_to_datasource(ds, img):
+            ds.data = {
                 "img": [img.values],
                 "x": [self._current_x_range[0]],
                 "y": [self._current_y_range[0]],
@@ -301,16 +415,46 @@ class ShadedTaskPlot(ShadedPlot):
                 "dh": [self._current_y_range[1] - self._current_y_range[0]],
             }
 
+        def update():
+            nonlocal only_hover
+            if not only_hover:
+                self._img, self._hover_agg = shade_mesh(
+                    self._vertices,
+                    self._triangles,
+                    task_cmap,
+                    plot_width=self._defaults_opts["plot_width"],
+                    plot_height=self._defaults_opts["plot_height"],
+                    x_range=self._current_x_range,
+                    y_range=self._current_y_range,
+                )
+
+            if not only_hover:
+                self._doc.add_next_tick_callback(partial(push_to_datasource, self._ds, self._img))
+
+            self._hovered_img, _ = shade_mesh(
+                *self._hovered_mesh,
+                "black",
+                plot_width=self._defaults_opts["plot_width"],
+                plot_height=self._defaults_opts["plot_height"],
+                x_range=self._current_x_range,
+                y_range=self._current_y_range,
+            )
+            self._doc.add_next_tick_callback(
+                partial(push_to_datasource, self._hovered_ds, self._hovered_img)
+            )
+
         if immediate:
-            gen()
+            WorkerQueue().get().put(update)
         else:
-            self._throttledEvent.add_event(gen)
+            self._throttledEvent.add_event(lambda: WorkerQueue().get().put(update))
 
     def set_data(
         self,
         vertices,
         triangles,
         data_ranges,
+        names,
+        times,
         x_range=None,
         y_range=None,
     ):
@@ -318,6 +462,8 @@ class ShadedTaskPlot(ShadedPlot):
         self._vertices = vertices
         self._triangles = triangles
         self._data_ranges = data_ranges
+        self._names = names
+        self._times = times
 
         _x_range, _y_range = self._calculate_ranges()
 

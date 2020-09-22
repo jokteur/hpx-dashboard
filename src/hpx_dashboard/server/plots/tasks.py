@@ -13,7 +13,8 @@ from bokeh.layouts import column
 from bokeh.models import MultiChoice  # , HoverTool
 
 from .base import BaseElement, get_figure_options
-from .raster import ShadedTaskPlot
+from ..data import DataSources
+from .raster import ShadedTaskPlot, empty_task_mesh
 from ..widgets import BaseWidget
 
 # from ..utils import format_time
@@ -39,8 +40,6 @@ class FilterWidget(BaseWidget):
 
 
 class TasksPlot(BaseElement):
-    empty_dict = {"x": [], "y": [], "width": [], "name": [], "color": [], "duration": []}
-
     def __init__(
         self,
         doc,
@@ -65,7 +64,7 @@ class TasksPlot(BaseElement):
         # Make plot and figure
         defaults_opts = dict(
             title="Task plot",
-            tools="hover,save,reset,xwheel_zoom,xpan",
+            tools="save,reset,xwheel_zoom,xpan",
             toolbar_location="above",
             x_axis_label="Time (s)",
             y_axis_label="Worker ID",
@@ -81,9 +80,9 @@ class TasksPlot(BaseElement):
 
         self._figure = ShadedTaskPlot(
             doc,
-            [[0, 0, 0]],
-            [[0, 0, 0]],
-            ((0, 1), (0, 1)),
+            *empty_task_mesh,
+            [],
+            [],
             refresh_rate=refresh_rate,
             **defaults_opts,
         )
@@ -103,17 +102,20 @@ class TasksPlot(BaseElement):
 
     def _update_data(self):
         """"""
-        if not self._collection:
+        collection = DataSources().get_collection(self._collection)
+        if not collection:
             return
 
-        names = self._collection.get_task_names(self._locality)
+        names = collection.get_task_names(self._locality)
         if names != self._task_names:
             self._task_names = names
             self._filter_choice.set_choices(names)
 
-        verts, tris, data_ranges = self._collection.get_task_mesh_data(self._locality)
+        verts, tris, data_ranges = collection.get_task_mesh_data(self._locality)
+        task_data, names = collection.get_task_data(self._locality)
+        times = task_data[:, 2] - task_data[:, 1]
         if len(verts) != self._num_points:
-            self._figure.set_data(verts, tris, data_ranges)
+            self._figure.set_data(verts, tris, data_ranges, names, times)
             self._num_points = len(verts)
 
     def set_instance(self, locality):
