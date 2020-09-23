@@ -290,7 +290,7 @@ class ShadedTaskPlot(ShadedPlot):
         triangles,
         data_ranges,
         names,
-        times,
+        data,
         refresh_rate=500,
         **kwargs,
     ):
@@ -298,7 +298,7 @@ class ShadedTaskPlot(ShadedPlot):
         self._triangles = triangles
         self._data_ranges = data_ranges
         self._names = names
-        self._times = times
+        self._data = data
         self._hovered_mesh = empty_task_mesh[0:2]  # For highlighting the hovered task on the plot
         self._last_hovered = -1
 
@@ -382,9 +382,14 @@ class ShadedTaskPlot(ShadedPlot):
                 id_patch = self._hover_agg["id_info"].values[y, x]
                 if not np.isnan(id_patch):
                     id_patch = int(id_patch)
-                    duration = format_time(self._times[id_patch])
-                    self._hover_tool.tooltips = f"""Name: <em>{self._names[id_patch]}</em><br />
-                        Duration: <bold>{duration}</bold>"""
+                    begin = self._data[id_patch, 1]
+                    end = self._data[id_patch, 2]
+                    digits = abs(int(np.ceil(np.log10(end - begin)))) + 3
+                    duration = format_time(end - begin)
+                    self._hover_tool.tooltips = f"""Name: <b><em>{self._names[id_patch]}</em></b><br />
+                        Duration: {duration}<br />
+                        Start: {np.round(begin, digits)}s<br />
+                        End : {np.round(end, digits)}s"""
 
                     # Generate mesh for hovered image
                     self._hovered_mesh[0] = self._vertices[id_patch * 4 : (id_patch + 1) * 4]
@@ -444,9 +449,9 @@ class ShadedTaskPlot(ShadedPlot):
             )
 
         if immediate:
-            WorkerQueue().get().put(update)
+            WorkerQueue().put("task_raster", update)
         else:
-            self._throttledEvent.add_event(lambda: WorkerQueue().get().put(update))
+            self._throttledEvent.add_event(lambda: WorkerQueue().put("task_raster", update))
 
     def set_data(
         self,
@@ -454,7 +459,7 @@ class ShadedTaskPlot(ShadedPlot):
         triangles,
         data_ranges,
         names,
-        times,
+        data,
         x_range=None,
         y_range=None,
     ):
@@ -463,7 +468,7 @@ class ShadedTaskPlot(ShadedPlot):
         self._triangles = triangles
         self._data_ranges = data_ranges
         self._names = names
-        self._times = times
+        self._data = data
 
         _x_range, _y_range = self._calculate_ranges()
 

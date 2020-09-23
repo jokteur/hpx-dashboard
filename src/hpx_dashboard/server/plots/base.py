@@ -19,7 +19,7 @@ import time
 from bokeh.plotting import Figure
 from bokeh import palettes
 
-from ..data import DataAggregator
+from ..data import DataSources
 
 
 def get_figure_options():
@@ -92,17 +92,11 @@ class BaseElement(metaclass=ABCMeta):
         if self._callback_object:
             self._doc.remove_periodic_callback(self._callback_object)
 
-    def _select_last_collection(self):
-        if DataAggregator().get_current_run():
-            return DataAggregator().get_current_run()
-        elif DataAggregator().get_last_run():
-            return DataAggregator().get_last_run()
-
     def set_collection(self, collection):
         self._collection = collection
         if not collection:
             self._select_most_recent_collection = True
-            self._collection = self._select_last_collection()
+            self._collection = DataSources().get_live_collection()
         else:
             self._select_most_recent_collection = False
 
@@ -114,9 +108,10 @@ class BaseElement(metaclass=ABCMeta):
     def update(self):
         if (
             self._select_most_recent_collection
-            and self._collection != DataAggregator().get_last_run()
+            and self._collection != DataSources().get_live_collection()
         ):
-            self._collection = self._select_last_collection()
+            self._collection = DataSources().get_live_collection()
+            print("Update collection")
             self._reset = True
 
     def layout(self):

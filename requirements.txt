@@ -1,5 +1,5 @@
-toolz
-numpy
-datashader
-bokeh>=2.0.0
-pandas
+toolz=0.10.0
+numpy~=1.19
+datashader=0.11.1
+bokeh=2.1.0
+pandas=1.1.2
