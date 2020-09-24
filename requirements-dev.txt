@@ -1,6 +1,7 @@
-toolz=0.10.0
+toolz==0.10.0
 numpy~=1.19
-datashader=0.11.1
-bokeh=2.1.0
-pandas=1.1.2
+datashader==0.11.1
+bokeh==2.1.0
+pandas==1.1.2
 pre-commit
+Sphinx

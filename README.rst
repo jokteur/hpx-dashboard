@@ -1,5 +1,5 @@
 =================
-Quick Start Guide
+HPX dashboard
 =================
 
 This document will guide you through the basic steps to get started with the HPX dashboard.
