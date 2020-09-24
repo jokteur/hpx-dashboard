@@ -111,7 +111,6 @@ class BaseElement(metaclass=ABCMeta):
             and self._collection != DataSources().get_live_collection()
         ):
             self._collection = DataSources().get_live_collection()
-            print("Update collection")
             self._reset = True
 
     def layout(self):

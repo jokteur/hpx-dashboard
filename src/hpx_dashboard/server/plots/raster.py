@@ -76,32 +76,21 @@ def shade_mesh(vertices, triangles, cmap=colorcet.rainbow, **kwargs):
     if "plot_width" not in kwargs or "plot_height" not in kwargs:
         raise ValueError("Please provide plot_width and plot_height for the canvas.")
 
-    import time
-
-    t = time.time()
-
     if not isinstance(vertices, pd.DataFrame):
         vertices = pd.DataFrame(vertices, columns=["x", "y", "z", "patch_id"], copy=False)
 
     if not isinstance(triangles, pd.DataFrame):
         triangles = pd.DataFrame(triangles, columns=["v0", "v1", "v2"], copy=False)
 
-    t1 = time.time() - t
-
     cvs = ds.Canvas(**kwargs)
-    t = time.time()
     img = cvs.trimesh(vertices, triangles, interpolate="nearest")
-    t2 = time.time() - t
 
-    t = time.time()
     summary = ds.summary(id_info=ds.max("patch_id"))
     summary.column = "z"
+
     hover_agg = cvs.trimesh(vertices, triangles, agg=summary)
-    t3 = time.time() - t
-    t = time.time()
     res = tf.shade(img, cmap=cmap, how="linear", span=[0, len(cmap)]), hover_agg
-    t4 = time.time() - t
-    print(f"{t1:0.04}, {t2:0.04}, {t3:0.04}, {t4:0.04}")
+
     return res
 
 
