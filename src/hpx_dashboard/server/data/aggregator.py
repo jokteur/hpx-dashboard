@@ -17,8 +17,7 @@ from .collection import DataCollection
 
 
 class DataAggregator(metaclass=Singleton):
-    """DataAggregator is a singleton that store all the data from all the runs.
-    """
+    """DataAggregator is a singleton that store all the data from all the runs."""
 
     def __init__(self):
         """Initializes the data of the server."""
@@ -49,6 +48,19 @@ class DataAggregator(metaclass=Singleton):
             return self.data[self.last_run]
         else:
             return None
+
+    def get_live_collection(self):
+        """Returns the most recent collection in memory.
+
+        If there is a live collection, then it is returned. Otherwise, the most recent collection
+        is returned.
+        """
+        collection = None
+        if self.get_current_run():
+            collection = self.get_current_run()
+        elif self.get_last_run():
+            collection = self.get_last_run()
+        return collection
 
     def get_all_runs(self):
         """Returns all current and past data collection runs"""

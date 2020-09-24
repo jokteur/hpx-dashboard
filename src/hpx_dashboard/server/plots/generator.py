@@ -173,7 +173,7 @@ class TimeSeries(BaseElement):
         for _, _, collection, _ in self._data_sources.keys():
             collection = DataSources().get_collection(collection)
             if collection:
-                df = pd.DataFrame(collection.get_numpy_data(), copy=False)
+                df = pd.DataFrame(collection.line_data(), copy=False)
                 df.rename(columns={0: "x", 1: "y", 2: "name"}, inplace=True)
                 dataframes[collection] = df
 

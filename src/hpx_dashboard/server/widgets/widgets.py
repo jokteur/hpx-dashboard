@@ -21,7 +21,7 @@ from .base import BaseWidget, empty_placeholder
 from ..plots import generator
 from .select import DataCollectionSelect, SelectCustomLine
 from ...common.logger import Logger
-from ..data import DataAggregator, DataSources, from_instance
+from ..data import DataAggregator, from_instance
 
 logger = Logger()
 
@@ -286,7 +286,7 @@ class DataCollectionWidget(BaseWidget):
         most_recent_flag = False
         if not self._selected_collection:
             most_recent_flag = True
-            collection = DataSources().get_live_collection()
+            collection = DataAggregator().get_live_collection()
         else:
             collection = self._selected_collection
 

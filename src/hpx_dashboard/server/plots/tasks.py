@@ -112,8 +112,8 @@ class TasksPlot(BaseElement):
             self._task_names = names
             self._filter_choice.set_choices(names)
 
-        verts, tris, data_ranges = collection.get_task_mesh_data(self._locality)
-        task_data, names = collection.get_task_data(self._locality)
+        verts, tris, data_ranges = collection.task_mesh_data(self._locality)
+        task_data, names = collection.task_data(self._locality)
         if len(verts) != self._num_points:
             self._figure.set_data(verts, tris, data_ranges, names, task_data)
             self._num_points = len(verts)

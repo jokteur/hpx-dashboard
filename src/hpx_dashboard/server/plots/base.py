@@ -19,7 +19,7 @@ import time
 from bokeh.plotting import Figure
 from bokeh import palettes
 
-from ..data import DataSources
+from ..data import DataAggregator
 
 
 def get_figure_options():
@@ -96,7 +96,7 @@ class BaseElement(metaclass=ABCMeta):
         self._collection = collection
         if not collection:
             self._select_most_recent_collection = True
-            self._collection = DataSources().get_live_collection()
+            self._collection = DataAggregator().get_live_collection()
         else:
             self._select_most_recent_collection = False
 
@@ -108,9 +108,9 @@ class BaseElement(metaclass=ABCMeta):
     def update(self):
         if (
             self._select_most_recent_collection
-            and self._collection != DataSources().get_live_collection()
+            and self._collection != DataAggregator().get_live_collection()
         ):
-            self._collection = DataSources().get_live_collection()
+            self._collection = DataAggregator().get_live_collection()
             self._reset = True
 
     def layout(self):

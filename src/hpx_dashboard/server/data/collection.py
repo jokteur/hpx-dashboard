@@ -233,10 +233,10 @@ class DataCollection:
 
         locality_id, pool, thread_id = self._get_instance_infos(full_instance)
 
-        instance_name = full_instance
+        instance = full_instance
         if locality_id:
             self._add_instance_name(locality_id, pool, thread_id)
-            instance_name = format_instance(locality_id, pool, thread_id)
+            instance = format_instance(locality_id, pool, thread_id)
 
         try:
             value = float(value)
@@ -244,22 +244,22 @@ class DataCollection:
             value = str(value)
 
         # Growing numpy array
-        key = (self._id, name, instance_name)
+        key = (self._id, name, instance)
         if key not in self._line_to_hash:
             self._line_to_hash[key] = float(len(self._line_to_hash.keys()))
         self._numpy_data.append([timestamp, value, self._line_to_hash[key]])
 
-        line = [instance_name, int(sequence_number), timestamp, timestamp_unit, value, value_unit]
-        if instance_name not in self.data[name]:
-            self.data[name][instance_name] = []
+        line = [int(sequence_number), timestamp, timestamp_unit, value, value_unit]
+        if instance not in self.data[name]:
+            self.data[name][instance] = []
 
-        self.data[name][instance_name].append(line)
+        self.data[name][instance].append(line)
 
     def get_counter_names(self):
         """Returns the list of available counters that are currently in the collection."""
         return list(self.data.keys())
 
-    def get_task_mesh_data(self, locality):
+    def task_mesh_data(self, locality):
         """"""
         if locality not in self._task_data:
             return [[0, 0, 0]], [[0, 0, 0]], ((0, 1), (0, 1))
@@ -279,23 +279,38 @@ class DataCollection:
         y_range = (-1 + task_plot_margin, max_worker_id + 1 / 2 * (1 - task_plot_margin))
         return vertices, triangles, (x_range, y_range)
 
-    def get_data(self, countername: str, instance_name: tuple, index=0):
-        """"""
+    def get_data(self, countername: str, instance: tuple, index=0):
+        """Returns the data of the specified countername and the instance.
+
+        Arguments
+        ---------
+        countername : str
+            name of the HPX performance counter
+        instance : tuple
+            instance identifier (locality, pool, worker id) returned by the format_instance function
+        index : int
+            start from specified index
+
+        Returns
+        -------
+        ndarray where the columns in order are sequence number, timestamp, timestamp unit,
+        value and value unit
+        """
         if countername not in self.data:
             return np.array([])
 
-        if instance_name in self.data[countername]:
-            if index >= len(self.data[countername][instance_name]):
+        if instance in self.data[countername]:
+            if index >= len(self.data[countername][instance]):
                 return np.array([])
 
-            return np.array(self.data[countername][instance_name][index:], dtype="O")
+            return np.array(self.data[countername][instance][index:], dtype="O")
         else:
             return np.array([])
 
-    def get_numpy_data(self):
+    def line_data(self):
         return self._numpy_data.get()
 
-    def get_task_data(self, locality):
+    def task_data(self, locality):
         if locality not in self._task_data:
             return []
         return self._task_data[locality]["data"].get(), self._task_data[locality]["name_list"]
@@ -321,7 +336,7 @@ class DataCollection:
             return []
 
     def get_num_worker_threads(self, locality):
-        """Returns the number of worker threads in a particular locality"""
+        """Returns the number of worker threads in a particular locality."""
         num = 0
         if locality in self.instances:
             for pool in self.instances[locality].keys():
@@ -333,12 +348,47 @@ class DataCollection:
         return num
 
     def get_worker_threads(self, locality, pool=None):
-        """Returns the list of worker threads in a particular locality and pool"""
+        """Returns the list of worker threads in a particular locality and pool."""
         if locality in self.instances:
             if pool in self.instances[locality]:
                 return [idx for idx in self.instances[locality][pool].keys() if idx != "total"]
 
         return []
+
+    def export_counter_data(self):
+        """Returns a pandas DataFrame that contains all the HPX performance counter data."""
+        dfs = []
+        for name in self.data.keys():
+            for instance in self.data[name].keys():
+                data = self.get_data(name, instance)
+                df = pd.DataFrame(
+                    data,
+                    columns=[
+                        "sequence_number",
+                        "timestamp",
+                        "timestamp_unit",
+                        "value",
+                        "value_unit",
+                    ],
+                )
+                df["countername"] = name
+                locality, pool, thread = from_instance(instance)
+                df["locality"] = locality
+                df["pool"] = pool
+                df["thread"] = thread
+                dfs.append(df)
+        return pd.concat(dfs)
+
+    def export_task_data(self):
+        dfs = []
+        for locality in self.get_localities():
+            task_data, task_names = self.task_data(locality)
+            df = pd.DataFrame(task_data, columns=["worker_id", "start", "end", "name"])
+            df = df.astype({"worker_id": int})
+            df["locality"] = locality
+            df["name"] = task_names
+            dfs.append(df)
+        return pd.concat(dfs)
 
     def set_start_time(self, start_time):
         """Sets the start start of the collection."""

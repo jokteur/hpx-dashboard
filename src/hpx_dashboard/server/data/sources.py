@@ -53,8 +53,8 @@ class DataSources(metaclass=Singleton):
             if data.ndim == 2:
                 self._data[doc][identifier]["last_index"] = int(data[-1, 1])
                 data_dict = {
-                    f"{identifier}_time": data[:, 2],
-                    f"{identifier}": data[:, 4],
+                    f"{identifier}_time": data[:, 1],
+                    f"{identifier}": data[:, 3],
                 }
                 self._num_updates[doc][identifier] += 1
         return data_dict
@@ -118,7 +118,7 @@ class DataSources(metaclass=Singleton):
         # Build the data source from scratch if it does not exists
         if identifier not in self._data[doc]:
             if not collection:
-                collection = self.get_live_collection()
+                collection = DataAggregator().get_live_collection()
 
             self._data[doc][identifier] = {
                 "last_index": 0,
