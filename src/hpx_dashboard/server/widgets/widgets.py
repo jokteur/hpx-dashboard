@@ -55,6 +55,10 @@ class CustomCounterWidget(BaseWidget):
         self._add_line_b = Button(label="+", width=40)
         self._add_line_b.on_click(self._add_line)
 
+        # Toggle button for the shading of the plots
+        self._shade_b = Toggle(label="Toggle plot shading", width=170)
+        self._shade_b.on_click(self._toggle_shade)
+
         # Buttons for adding and removing plots
         self._add_plot_b = Button(label="+", width=40)
         self._add_plot_b.on_click(self._add_plot)
@@ -78,6 +82,7 @@ class CustomCounterWidget(BaseWidget):
                 self._remove_plot_b,
                 self._add_plot_b,
                 self._edit_button,
+                self._shade_b,
             ),
             empty_placeholder(),
             empty_placeholder(),
@@ -101,6 +106,10 @@ class CustomCounterWidget(BaseWidget):
         )
         if update:
             self._update_line_widget()
+
+    def _toggle_shade(self, shade):
+        for plot in self._plots:
+            plot.toggle_shade()
 
     def _update_plots(self):
         plots = [plot.layout() for plot in self._plots]

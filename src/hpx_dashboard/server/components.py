@@ -36,14 +36,12 @@ def custom_counters(doc, notifier):
 
 
 def scheduler(doc, notifier):
-    """Defines the tab for the task plot"""
+    """Defines the tab for the scheduler plot"""
 
     # TODO : if there are multiple pools, plot all the lines
 
-    scheduler_plot = TimeSeries(
-        doc, shade=True, title="Scheduler utilization", y_axis_label="Utilization (%)"
-    )
-    counter = "threads/count/instantaneous/pending"
+    scheduler_plot = TimeSeries(doc, title="Scheduler utilization", y_axis_label="Utilization (%)")
+    counter = "scheduler/utilization/instantaneous"
     instance = format_instance("0")
     pretty_name = "Scheduler utilization"
     scheduler_plot.add_line(

@@ -163,6 +163,10 @@ class TimeSeries(BaseElement):
                 mean = sum(means)
                 print(f"Total: {total}, mean: {mean}, {len(totals)}")
 
+    def toggle_shade(self):
+        self._is_shaded = not self._is_shaded
+        self._rebuild_figure = True
+
     def _build_shaded_data(self):
         self._data = []
         dataframes = {}
