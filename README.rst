@@ -4,6 +4,14 @@ HPX dashboard
 
 This document will guide you through the basic steps to get started with the HPX dashboard.
 
+.. image:: docs/_static/images/demo1.gif
+    :width: 45%
+    :align: left
+    
+.. image:: docs/_static/images/demo2.gif
+    :width: 45%
+    :align: right
+
 ------------
 Installation
 ------------
@@ -116,19 +124,3 @@ This tool is *not* intended to replace more advanced profiling tools such as vam
 current limitations with Python and rendering, this tool cannot process extremely large datasets
 which typically result from very long executions of HPX applications.
 
-^^^^^^^^^^^^^^^^^^
-Terminology of HPX
-^^^^^^^^^^^^^^^^^^
-As the dashboard is specifically build for HPX, it also uses some of its `terminology <https://hpx-docs.stellar-group.org/latest/html/terminology.html>`_.
-
-.. figure:: _static/images/hpx_model.png
-
-   *fig 1.* The HPX programming model (from https://github.com/STEllAR-GROUP/tutorials/tree/master/hlrs2019/session2)
-
-Based on the previous figure, here are some explanations for the terms used in the dashboard:
-
-* **Performance counter**: data provided from HPX which indicates how well the runtime system or an application is running. The counter data is produced live an can be plotted in the dashboard. To know more about what kind of performance counter exist, please visit `this page <https://hpx-docs.stellar-group.org/latest/html/manual/optimizing_hpx_applications.html#performance-countersl>`_.
-* **Locality**: A locality designates a synchronous domain of execution, which is usually a single node in a cluster or a NUMA domain. When executed on a single machine, there is only one locality, designated by 0.
-* **Thread**: A thread (or worker thread) corresponds to a real CPU thread on a locality which waits on tasks to be delivered by the *thread scheduler*. The number of available worker threads is by default the number of CPU cores on the system and can be otherwise specified with the `--hpx:threads` option in the HPX application.
-* **Pool**: Sometimes, threads on a locality can be grouped into pools. If no pool-name is specified the counter refers to the 'default' pool.
-* **Task**: A task designates some piece of work that can be executed on a thread. A basic HPX task has a name, the ID of the worker thread on which it is executed, a beginning and an end. All the finished tasks are plotted on the dashboard in the `task plot` tab.
