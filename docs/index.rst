@@ -6,11 +6,22 @@
 Welcome to HPX dashboard's documentation!
 =========================================
 
+.. image:: _static/images/demo1.gif
+    :width: 45%
+    :align: left
+    
+.. image:: _static/images/demo2.gif
+    :width: 45%
+    :align: right
+
+
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
 
    quickstart
+   dashboard
+   jupyter
    _source/modules
 
 

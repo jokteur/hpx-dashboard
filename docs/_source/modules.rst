@@ -1,5 +1,5 @@
-hpx_dashboard
-=============
+Source code and API
+===================
 
 .. toctree::
    :maxdepth: 4

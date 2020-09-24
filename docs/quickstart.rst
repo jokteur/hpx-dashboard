@@ -141,3 +141,7 @@ little bit different. To create the virtual environnement:
     source ./path_for_the_venv/bin/activate
 
 Then the rest of the installation should be similar as described above.
+
+-----
+Usage
+-----

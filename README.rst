@@ -5,11 +5,11 @@ HPX dashboard
 This document will guide you through the basic steps to get started with the HPX dashboard.
 
 .. image:: docs/_static/images/demo1.gif
-    :width: 45%
+    :width: 400px
     :align: left
     
-.. image:: docs/_static/images/demo2.gif
-    :width: 45%
+.. image:: docs/_static/images/task_plot.jpg
+    :width: 400px
     :align: right
 
 ------------
