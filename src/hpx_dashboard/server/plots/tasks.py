@@ -89,7 +89,8 @@ class TasksPlot(BaseElement):
 
         self._filter_choice = FilterWidget(doc, self.set_filter_list, collection=collection)
 
-        self._root = column(self._figure.layout(), self._filter_choice.layout())
+        # Right now, filtering is not implemented
+        self._root = column(self._figure.layout())  # , self._filter_choice.layout())
 
     def set_filter_list(self, filters):
         """Sets a filter to show only particular tasks"""

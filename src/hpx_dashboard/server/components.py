@@ -12,7 +12,7 @@
 
 import os
 
-from bokeh.layouts import row
+from bokeh.layouts import row, column
 from bokeh.models import Panel, Tabs
 from bokeh.themes import Theme
 
@@ -29,13 +29,13 @@ env = Environment(
 BOKEH_THEME = Theme(os.path.join(os.path.dirname(__file__), "http", "bokeh_theme.yaml"))
 
 
-def custom_counters(doc, notifier):
+def custom_counters_widget(doc, notifier):
     """Defines the tab for the custom counter widget"""
     custom_counter = CustomCounterWidget(doc)
     return custom_counter.layout()
 
 
-def scheduler(doc, notifier):
+def scheduler_widget(doc, notifier):
     """Defines the tab for the scheduler plot"""
 
     # TODO : if there are multiple pools, plot all the lines
@@ -60,7 +60,7 @@ def scheduler(doc, notifier):
     return scheduler_plot.layout()
 
 
-def tasks(doc, notifier):
+def tasks_widget(doc, notifier):
     """Defines the tab for the task plot"""
     task_plot = TasksPlot(doc)
     notifier.subscribe(task_plot.set_collection)
@@ -73,9 +73,11 @@ def standalone_doc(extra, doc):
 
     widget = DataCollectionWidget(doc, notifier.notify)
 
-    task_tab = Panel(child=tasks(doc, notifier), title="Tasks plot")
-    scheduler_tab = Panel(child=scheduler(doc, notifier), title="Scheduler utilization")
-    custom_counter_tab = Panel(child=custom_counters(doc, notifier), title="Customizable plots")
+    task_tab = Panel(child=tasks_widget(doc, notifier), title="Tasks plot")
+    scheduler_tab = Panel(child=scheduler_widget(doc, notifier), title="Scheduler utilization")
+    custom_counter_tab = Panel(
+        child=custom_counters_widget(doc, notifier), title="Customizable plots"
+    )
 
     doc.add_root(
         row(
@@ -88,3 +90,32 @@ def standalone_doc(extra, doc):
     doc.template = env.get_template("normal.html")
     doc.template_variables.update(extra)
     doc.theme = BOKEH_THEME
+
+
+def tasks_doc(extra, doc):
+    doc.title = "HPX performance counter dashboard"
+    notifier = Notifier()
+
+    widget = DataCollectionWidget(doc, notifier.notify)
+    tasks = tasks_widget(doc, notifier)
+
+    doc.add_root(column(widget.layout(), tasks))
+
+
+def scheduler_doc(extra, doc):
+    doc.title = "HPX performance counter dashboard"
+    notifier = Notifier()
+
+    widget = DataCollectionWidget(doc, notifier.notify)
+    scheduler = scheduler_widget(doc, notifier)
+
+    doc.add_root(column(widget.layout(), scheduler))
+
+
+def custom_counter_doc(extra, doc):
+    doc.title = "HPX performance counter dashboard"
+    notifier = Notifier()
+
+    custom = custom_counters_widget(doc, notifier)
+
+    doc.add_root(custom)
