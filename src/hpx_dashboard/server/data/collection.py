@@ -139,7 +139,7 @@ class DataCollection:
 
     def add_task_data(self, locality, thread_id: int, name, begin: float, end: float):
         """"""
-        self._add_instance_name(locality, thread_id=thread_id)
+        self._add_instance_name(locality, pool="default", thread_id=thread_id)
 
         if locality not in self._task_data:
             self._task_data[locality] = {
