@@ -213,6 +213,7 @@ class ShadedPlot(BaseElement):
             self._current_y_range = self._defaults_opts["y_range"]
 
         self._root = figure(**self._defaults_opts)
+
         self._root.on_event(MouseWheel, self._freeze_ranges)
         self._root.on_event(PanEnd, self._freeze_ranges)
 
@@ -227,8 +228,7 @@ class ShadedPlot(BaseElement):
         self._last_reset = time.time()
 
     def _freeze_ranges(self, *args):
-        if self._root.toolbar.active_drag:
-            self._keep_range = True
+        self._keep_range = True
 
     def _calculate_ranges(self):
         return (0, 1), (0, 1)

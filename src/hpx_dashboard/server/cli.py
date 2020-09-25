@@ -21,6 +21,7 @@ from tornado.ioloop import IOLoop
 from ..common.logger import Logger
 from .tcp_listener import TCP_Server, handle_response
 from .worker import worker_thread, WorkerQueue
+from .data import DataAggregator
 from .app import bk_server
 
 
@@ -45,6 +46,32 @@ def args_parse(argv):
         default=5006,
     )
 
+    parser.add_argument(
+        "--no-auto-save",
+        dest="no_save",
+        help="Disable auto-save feature of sessions.",
+        default=False,
+    )
+
+    parser.add_argument(
+        "-s",
+        "--save-path",
+        dest="save_path",
+        help="Path where the session will be auto-saved.The hpx-dashboard server creates a folder"
+        " with a timestamp where all the data will be saved as csv format.",
+        default="",
+    )
+
+    parser.add_argument(
+        "-i",
+        "--import-path",
+        dest="import_path",
+        help="Path to a folder containing an existing session which will be imported. Additional"
+        " collections will be saved to the folder. The folder shoud have been created by the"
+        " hpx-dashboard server. If the import failed, then a normal new session is created.",
+        default=None,
+    )
+
     return parser.parse_args(argv)
 
 
@@ -53,6 +80,11 @@ def server(argv):
 
     logger = Logger()
     opt = args_parse(sys.argv[1:])
+
+    if opt.import_path:
+        DataAggregator(import_path=opt.import_path)
+    else:
+        DataAggregator(auto_save=(not opt.no_save), save_path=opt.save_path)
 
     server = bk_server(io_loop=IOLoop().current(), port=int(opt.bokeh_port))
     server.start()

@@ -52,9 +52,9 @@ class _NumpyArrayList:
         return self.data[: self.size, :]
 
 
-def format_instance(locality_id, pool=None, thread_id="total"):
+def format_instance(locality, pool=None, worker_id="total"):
     """"""
-    return (str(locality_id), pool, str(thread_id))
+    return (str(locality), pool, str(worker_id))
 
 
 def from_instance(instance):
@@ -98,19 +98,22 @@ class DataCollection:
         self._id = self._id_counter
         self._id_counter += 1
 
-    def _add_instance_name(self, locality_id, pool=None, thread_id=None) -> None:
+        self.timings = []
+        self.line_timing = []
+
+    def _add_instance_name(self, locality, pool=None, worker_id=None) -> None:
         """Adds the instance name to the list of instance names stored in the class."""
-        if not locality_id:
+        if not locality:
             return
 
-        if locality_id not in self.instances:
-            self.instances[str(locality_id)] = {}
+        if locality not in self.instances:
+            self.instances[str(locality)] = {}
 
-        if pool not in self.instances[locality_id]:
-            self.instances[locality_id][pool] = {}
+        if pool not in self.instances[locality]:
+            self.instances[locality][pool] = {}
 
-        if thread_id not in self.instances[locality_id][pool]:
-            self.instances[locality_id][pool][thread_id] = []
+        if worker_id not in self.instances[locality][pool]:
+            self.instances[locality][pool][worker_id] = []
 
     def _get_instance_infos(self, full_instance: str) -> None:
         """"""
@@ -118,28 +121,34 @@ class DataCollection:
             return None, None, None
 
         instance_split = full_instance.split("/")
-        locality_id = instance_split[0].split("#")[1]
-        thread_id = None
+        locality = instance_split[0].split("#")[1]
+        worker_id = None
         pool = None
 
         if "total" in instance_split[1]:
-            thread_id = "total"
+            worker_id = "total"
         else:
             if len(instance_split) == 2:
                 pool = None
-                thread_id = instance_split[1].split("#")[1]
+                worker_id = instance_split[1].split("#")[1]
             elif "total" in instance_split[2]:
                 pool = instance_split[1].split("#")[1]
-                thread_id = "total"
+                worker_id = "total"
             else:
                 pool = instance_split[1].split("#")[1]
-                thread_id = instance_split[2].split("#")[1]
+                worker_id = instance_split[2].split("#")[1]
 
-        return locality_id, pool, thread_id
+        return locality, pool, worker_id
 
-    def add_task_data(self, locality, thread_id: int, name, begin: float, end: float):
+    def add_task_data(self, locality, worker_id: int, name, start: float, end: float):
         """"""
-        self._add_instance_name(locality, pool="default", thread_id=thread_id)
+        import time
+
+        t = time.time()
+        self._add_instance_name(locality, pool="default", worker_id=worker_id)
+        t1 = time.time() - t
+
+        t = time.time()
 
         if locality not in self._task_data:
             self._task_data[locality] = {
@@ -151,49 +160,64 @@ class DataCollection:
                 "min": np.finfo(float).max,
                 "max": np.finfo(float).min,
                 "workers": set(),
-                "min_time": float(begin),
+                "min_time": float(start),
             }
 
-        thread_id = float(thread_id)
-        begin = float(begin) - self._task_data[locality]["min_time"]
+        t2 = time.time() - t
+
+        t = time.time()
+
+        worker_id = float(worker_id)
+        start = float(start) - self._task_data[locality]["min_time"]
         end = float(end) - self._task_data[locality]["min_time"]
 
-        if begin < self._task_data[locality]["min"]:
-            self._task_data[locality]["min"] = begin
+        if start < self._task_data[locality]["min"]:
+            self._task_data[locality]["min"] = start
         if end > self._task_data[locality]["max"]:
             self._task_data[locality]["max"] = end
 
-        top = thread_id + 1 / 2 * (1 - task_plot_margin)
-        bottom = thread_id - 1 / 2 * (1 - task_plot_margin)
+        top = worker_id + 1 / 2 * (1 - task_plot_margin)
+        bottom = worker_id - 1 / 2 * (1 - task_plot_margin)
 
         self._task_data[locality]["name_list"].append(name)
         self._task_data[locality]["name_set"].add(name)
-        self._task_data[locality]["workers"].add(thread_id)
+        self._task_data[locality]["workers"].add(worker_id)
+
+        t3 = time.time() - t
+        t = time.time()
 
         color_hash = int(hashlib.md5(name.encode("utf-8")).hexdigest(), 16) % len(task_cmap)
 
-        self._task_data[locality]["data"].append([thread_id, begin, end, self._task_id])
+        t4 = time.time() - t
+        t = time.time()
+
+        self._task_data[locality]["data"].append([worker_id, start, end, self._task_id])
 
         idx = len(self._task_data[locality]["verts"].get())
 
         # Bottom left pt
-        self._task_data[locality]["verts"].append([begin, bottom, color_hash, self._task_id])
+        self._task_data[locality]["verts"].append([start, bottom, color_hash, self._task_id])
         # Top left pt
-        self._task_data[locality]["verts"].append([begin, top, color_hash, self._task_id])
+        self._task_data[locality]["verts"].append([start, top, color_hash, self._task_id])
         # Top right pt
         self._task_data[locality]["verts"].append([end, top, color_hash, self._task_id])
         # Bottom right pt
+        t6 = time.time()
         self._task_data[locality]["verts"].append([end, bottom, color_hash, self._task_id])
+        t6 = time.time() - t6
         self._task_id += 1
 
         # Triangles
         self._task_data[locality]["tris"].append([idx, idx + 1, idx + 2])
         self._task_data[locality]["tris"].append([idx, idx + 2, idx + 3])
+        t5 = time.time() - t
+
+        self.timings.append([t1, t2, t3, t4, t5, t6])
 
     def add_line(
         self,
-        fullname: str,
-        full_instance: str,
+        countername: str,
+        instance: Union[tuple, str],
         parameters: Union[str, None],
         sequence_number: int,
         timestamp: float,
@@ -205,13 +229,13 @@ class DataCollection:
 
         Parameters
         ----------
-        fullname
+        countername
             complete name of the performance counter without the full instance name
             parameter
         parameters
             parameter(s) of the hpx performance counter
-        full_instance
-            counter instance name
+        instance
+            counter instance name or tuple given by the format_instance function
         sequence_number
             sequence number of the counter invocation
         timestamp
@@ -224,19 +248,22 @@ class DataCollection:
         value_unit
             unit of the counter value
         """
-        name = fullname
+        name = countername
         if parameters:
-            name = fullname + "@" + parameters
+            name = countername + "@" + parameters
 
         if name not in self.data:
             self.data[name] = {}
 
-        locality_id, pool, thread_id = self._get_instance_infos(full_instance)
+        if isinstance(instance, tuple):
+            locality, pool, worker_id = instance
+        else:
+            locality, pool, worker_id = self._get_instance_infos(instance)
 
-        instance = full_instance
-        if locality_id:
-            self._add_instance_name(locality_id, pool, thread_id)
-            instance = format_instance(locality_id, pool, thread_id)
+        instance = instance
+        if locality:
+            self._add_instance_name(locality, pool, worker_id)
+            instance = format_instance(locality, pool, worker_id)
 
         try:
             value = float(value)
@@ -247,7 +274,11 @@ class DataCollection:
         key = (self._id, name, instance)
         if key not in self._line_to_hash:
             self._line_to_hash[key] = float(len(self._line_to_hash.keys()))
+        import time
+
+        t = time.time()
         self._numpy_data.append([timestamp, value, self._line_to_hash[key]])
+        self.line_timing.append(time.time() - t)
 
         line = [int(sequence_number), timestamp, timestamp_unit, value, value_unit]
         if instance not in self.data[name]:
@@ -312,7 +343,7 @@ class DataCollection:
 
     def task_data(self, locality):
         if locality not in self._task_data:
-            return []
+            return [], []
         return self._task_data[locality]["data"].get(), self._task_data[locality]["name_list"]
 
     def get_task_names(self, locality):
@@ -357,6 +388,9 @@ class DataCollection:
 
     def export_counter_data(self):
         """Returns a pandas DataFrame that contains all the HPX performance counter data."""
+
+        # Note: this is not the most efficient way to do this and for longer runs this can take a
+        # few hundred of ms
         dfs = []
         for name in self.data.keys():
             for instance in self.data[name].keys():
@@ -377,9 +411,12 @@ class DataCollection:
                 df["pool"] = pool
                 df["thread"] = thread
                 dfs.append(df)
-        return pd.concat(dfs)
+        df = pd.concat(dfs).reset_index()
+        del df["index"]
+        return df
 
     def export_task_data(self):
+        """Returns a pandas DataFrame that contains all the HPX task data."""
         dfs = []
         for locality in self.get_localities():
             task_data, task_names = self.task_data(locality)

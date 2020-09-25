@@ -40,7 +40,9 @@ def scheduler_widget(doc, notifier):
 
     # TODO : if there are multiple pools, plot all the lines
 
-    scheduler_plot = TimeSeries(doc, title="Scheduler utilization", y_axis_label="Utilization (%)")
+    scheduler_plot = TimeSeries(
+        doc, shade=True, title="Scheduler utilization", y_axis_label="Utilization (%)"
+    )
     counter = "scheduler/utilization/instantaneous"
     instance = format_instance("0")
     pretty_name = "Scheduler utilization"

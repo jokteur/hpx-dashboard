@@ -10,22 +10,97 @@
 """The data aggregator module is for storing any data coming from one or multiple hpx program runs.
 """
 
+import os
+import time
+import json
 from typing import Union
 
 from ...common.singleton import Singleton
+from ...common.logger import Logger
 from .collection import DataCollection
 
 
 class DataAggregator(metaclass=Singleton):
     """DataAggregator is a singleton that store all the data from all the runs."""
 
-    def __init__(self):
+    def __init__(self, auto_save=True, save_path="", import_path=""):
         """Initializes the data of the server."""
         self.data = []
         self.current_run = None
         self.last_run = None
         self.current_data: Union[DataCollection, None] = None
         self.dummy_counter = 0
+
+        self.session = str(int(time.time()))
+        self.auto_save = auto_save
+
+        if not auto_save:
+            Logger().info("No data is will be auto-saved during this session.")
+
+        if import_path:
+            self._import_session(import_path)
+        elif auto_save:
+            self._create_session(save_path)
+
+    def _import_session(self, path):
+        """Imports a previous session into the aggregator.
+
+        If the import failed, False is returned. If sucessful, True is returned.
+        """
+        self.path = path
+        Logger().info(f"Succesfully imported data from {path}.")
+        return False
+
+    def _create_session(self, path):
+        """Creates a folder with the correct structure for saving sessions.
+
+        hpx_data.<timestamp>/
+            session_metadata.json
+            counter_data.<timestamp>.csv
+            task_data.<timestamp>.csv
+            ...
+        """
+        self.path = os.path.join(path, "hpx_data." + self.session)
+        try:
+            os.mkdir(self.path)
+        except OSError as e:
+            Logger().warning(
+                f"Could not create the directory {self.path} for auto-saving"
+                f" the data because the following error occured: {e.strerror}."
+            )
+            Logger().warning("No auto-saving is enabled during this session.")
+            self.path = None
+            return
+
+        self.metadata_path = os.path.join(self.path, "session_metadata.json")
+        self.metadata = {"session_id": self.session, "collections": [], "custom_widget_config": {}}
+        self._save_metadata()
+
+        Logger().info(f"Session data will be saved in {self.path}")
+
+    def _save_metadata(self):
+        if self.path:
+            with open(self.metadata_path, "w") as json_file:
+                json.dump(self.metadata, json_file)
+
+    def _load_metadata(self):
+        if self.path:
+            with open(self.metadata_path, "r") as json_file:
+                self.metadata = json.load(json_file)
+
+    def set_custom_widget_config(self, widget_config):
+        """Saves the state of the custom counter widget to the session."""
+        if self.path:
+            self.metadata["custom_widget_config"] = widget_config
+            self._save_metadata()
+
+    def get_custom_widget_config(self):
+        """Returns the custom counter widget config saved in the session in json txt."""
+        if self.path:
+            self._load_metadata()
+            if "custom_widget_config" in self.metadata:
+                return json.dumps(self.metadata["custom_widget_config"])
+        return None
 
     def set_counter_infos(self, counter_infos: dict):
         """Sets the counter informations of the current collection.

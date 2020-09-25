@@ -56,7 +56,7 @@ class CustomCounterWidget(BaseWidget):
         self._add_line_b.on_click(self._add_line)
 
         # Toggle button for the shading of the plots
-        self._shade_b = Toggle(label="Toggle plot shading", width=170)
+        self._shade_b = Toggle(label="Toggle plot shading", width=150)
         self._shade_b.on_click(self._toggle_shade)
 
         # Buttons for adding and removing plots
@@ -76,6 +76,9 @@ class CustomCounterWidget(BaseWidget):
         self._json_update_button = Button(label="Update from input", width=150)
         self._json_update_button.on_click(self._set_from_input)
 
+        self._save_button = Button(label="Save state of widget to session", width=170)
+        self._save_button.on_click(self._save_widget)
+
         self._root = column(
             row(
                 Div(text="Add or remove plots:"),
@@ -83,6 +86,7 @@ class CustomCounterWidget(BaseWidget):
                 self._add_plot_b,
                 self._edit_button,
                 self._shade_b,
+                self._save_button,
             ),
             empty_placeholder(),
             empty_placeholder(),
@@ -90,6 +94,11 @@ class CustomCounterWidget(BaseWidget):
 
         self._plots = []
         self._add_plot()
+
+        # If there is a saved state in the session of the widget
+        json_txt = DataAggregator().get_custom_widget_config()
+        if json_txt:
+            self.from_json(json_txt)
 
     def _remove_line(self, idx):
         del self._lines[idx]
@@ -110,6 +119,9 @@ class CustomCounterWidget(BaseWidget):
     def _toggle_shade(self, shade):
         for plot in self._plots:
             plot.toggle_shade()
+
+    def _save_widget(self):
+        DataAggregator().set_custom_widget_config(json.loads(self.to_json()))
 
     def _update_plots(self):
         plots = [plot.layout() for plot in self._plots]
