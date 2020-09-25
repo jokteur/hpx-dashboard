@@ -14,6 +14,8 @@ import time
 import pickle
 import re
 
+from ..common.logger import Logger
+
 
 class FixedBuffer:
     def __init__(self, size):
@@ -239,17 +241,20 @@ class HPXParser:
         self.queue.put(pickle.dumps(("transmission_begin", time.time())))
         self.last_buffer_send = time.time()
 
-        for line in input_stream:
-            strip_line = self.parse_line(line)
-            strip_line = strip_line and self.strip_hpx_counters
+        try:
+            for line in input_stream:
+                strip_line = self.parse_line(line)
+                strip_line = strip_line and self.strip_hpx_counters
 
-            # Take care of redirecting the output of the program
-            if self.print_out and not strip_line:
-                print(line.strip())
-            if self.out_file_handler and not strip_line:
-                self.out_file_handler.write(line)
-            if self.send_stdout and not strip_line:
-                self._add_to_buffer(("line", line.strip()))
+                # Take care of redirecting the output of the program
+                if self.print_out and not strip_line:
+                    Logger().info(line.strip())
+                if self.out_file_handler and not strip_line:
+                    self.out_file_handler.write(line)
+                if self.send_stdout and not strip_line:
+                    self._add_to_buffer(("line", line.strip()))
+        except KeyboardInterrupt:
+            Logger().info("Keyboard interrupt, ending transmission.")
 
         if self.buffer:
             self.queue.put(pickle.dumps(("regular-data", self.buffer)))
