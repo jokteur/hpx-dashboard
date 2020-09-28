@@ -11,3 +11,6 @@ sdist
 
 # Sphinx documentation
 docs/_build/
+
+# hpx_data
+hpx_data.*

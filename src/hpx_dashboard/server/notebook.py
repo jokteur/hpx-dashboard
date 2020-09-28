@@ -15,12 +15,15 @@ import threading
 from bokeh.plotting import output_notebook, show
 
 from ..common.logger import Logger
+from .data import DataAggregator
 from .tcp_listener import TCP_Server, handle_response
 from .components import scheduler_doc, tasks_doc, custom_counter_doc
 from .worker import worker_thread, WorkerQueue
 
 
-def start(port=5267):
+def start(port=5267, auto_save=True, save_path="", import_path=""):
+    DataAggregator(auto_save=auto_save, save_path=save_path, import_path=import_path)
+
     tcp_queue = Queue()
     tcp_server = TCP_Server(queue=tcp_queue)
     tcp_server.listen(port)

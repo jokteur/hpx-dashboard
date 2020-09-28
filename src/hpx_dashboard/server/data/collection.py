@@ -30,9 +30,9 @@ class _NumpyArrayList:
     grow 2D numpy arrays.
     """
 
-    def __init__(self, size_x, dtype):
-        self.data = np.empty((100, size_x), dtype=dtype)
-        self.capacity = 100
+    def __init__(self, size_x, dtype, capacity=100):
+        self.data = np.empty((capacity, size_x), dtype=dtype)
+        self.capacity = capacity
         self.size = 0
         self.size_x = size_x
         self.dtype = dtype
@@ -47,6 +47,11 @@ class _NumpyArrayList:
         for i, element in enumerate(row):
             self.data[self.size, i] = element
         self.size += 1
+
+    def replace(self, array):
+        self.data = array
+        self.capacity = len(array)
+        self.size = len(array)
 
     def get(self):
         return self.data[: self.size, :]
@@ -140,21 +145,39 @@ class DataCollection:
 
         return locality, pool, worker_id
 
-    def add_task_data(self, locality, worker_id: int, name, start: float, end: float):
-        """"""
+    def add_task_data(
+        self, locality, worker_id: int, name, start: float, end: float, initial_capacity=1000
+    ):
+        """Adds one task to the task data of the collection.
+
+        This function also pre-builds the triangle mesh for the task plot that is used by datashader
+
+
+        Arguments
+        ---------
+        locality : int
+            locality index of the task
+        worker_id : int
+            id of the worker
+        name : str
+            name of the task
+        start : float
+            timestamp of the beginning of the task
+        end : float
+            timestamp of the end of the task
+        initial_capacity : int
+            size of the pre-allocated numpy array where the data will be stored
+            (only used if this is the first the locality is encountered)
+        """
         import time
 
-        t = time.time()
         self._add_instance_name(locality, pool="default", worker_id=worker_id)
-        t1 = time.time() - t
-
-        t = time.time()
 
         if locality not in self._task_data:
             self._task_data[locality] = {
-                "data": _NumpyArrayList(4, "float"),
-                "verts": _NumpyArrayList(4, "float"),
-                "tris": _NumpyArrayList(3, np.int),
+                "data": _NumpyArrayList(4, "float", initial_capacity),
+                "verts": _NumpyArrayList(4, "float", initial_capacity * 4),
+                "tris": _NumpyArrayList(3, np.int, initial_capacity * 2),
                 "name_list": [],
                 "name_set": set(),
                 "min": np.finfo(float).max,
@@ -162,10 +185,6 @@ class DataCollection:
                 "workers": set(),
                 "min_time": float(start),
             }
-
-        t2 = time.time() - t
-
-        t = time.time()
 
         worker_id = float(worker_id)
         start = float(start) - self._task_data[locality]["min_time"]
@@ -183,17 +202,13 @@ class DataCollection:
         self._task_data[locality]["name_set"].add(name)
         self._task_data[locality]["workers"].add(worker_id)
 
-        t3 = time.time() - t
-        t = time.time()
-
         color_hash = int(hashlib.md5(name.encode("utf-8")).hexdigest(), 16) % len(task_cmap)
 
-        t4 = time.time() - t
         t = time.time()
-
         self._task_data[locality]["data"].append([worker_id, start, end, self._task_id])
+        t1 = time.time() - t
 
-        idx = len(self._task_data[locality]["verts"].get())
+        idx = self._task_data[locality]["verts"].size
 
         # Bottom left pt
         self._task_data[locality]["verts"].append([start, bottom, color_hash, self._task_id])
@@ -202,17 +217,88 @@ class DataCollection:
         # Top right pt
         self._task_data[locality]["verts"].append([end, top, color_hash, self._task_id])
         # Bottom right pt
-        t6 = time.time()
+
         self._task_data[locality]["verts"].append([end, bottom, color_hash, self._task_id])
-        t6 = time.time() - t6
         self._task_id += 1
 
         # Triangles
         self._task_data[locality]["tris"].append([idx, idx + 1, idx + 2])
         self._task_data[locality]["tris"].append([idx, idx + 2, idx + 3])
-        t5 = time.time() - t
 
-        self.timings.append([t1, t2, t3, t4, t5, t6])
+        self.timings.append([t1])
+
+    def import_task_data(self, task_data):
+        """Imports task data into the collection from a pandas DataFrame in one go.
+
+        This function is there to speed-up import, but in fact does the same thing as add_task_data
+
+        Arguments
+        ---------
+        task_data : pd.DataFrame
+            dataframe that should have the columns `name`, `locality`, `worker_id`, `start` and
+            `end`
+        """
+
+        df = task_data.groupby("locality", sort=False)
+        for locality, group in df:
+            locality = str(locality)
+            min_time = group["start"].min()
+            max_time = group["end"].max()
+            self._task_data[locality] = {
+                "data": _NumpyArrayList(4, "float"),
+                "verts": _NumpyArrayList(4, "float"),
+                "tris": _NumpyArrayList(3, np.int),
+                "name_list": group["name"].to_list(),
+                "min": min_time,
+                "max": max_time,
+                "workers": set(group["worker_id"].to_list()),
+                "min_time": min_time,
+            }
+            for worker_id in self._task_data[locality]["workers"]:
+                self._add_instance_name(locality, pool="default", worker_id=worker_id)
+
+            self._task_data[locality]["name_set"] = set(self._task_data[locality]["name_list"])
+
+            size = len(group)
+            group["index"] = np.arange(size)
+            group["color_hash"] = group["name"].apply(
+                lambda name: int(hashlib.md5(name.encode("utf-8")).hexdigest(), 16) % len(task_cmap)
+            )
+
+            group["top"] = group["worker_id"] + 1 / 2 * (1 - task_plot_margin)
+            group["bottom"] = group["worker_id"] - 1 / 2 * (1 - task_plot_margin)
+
+            # Build the vertices
+            bottom_left = group[["start", "bottom", "color_hash", "index"]].rename(
+                columns={"start": "x", "bottom": "y"}
+            )
+            top_left = group[["start", "top", "color_hash", "index"]].rename(
+                columns={"start": "x", "top": "y"}
+            )
+            top_right = group[["end", "top", "color_hash", "index"]].rename(
+                columns={"end": "x", "top": "y"}
+            )
+            bottom_right = group[["end", "bottom", "color_hash", "index"]].rename(
+                columns={"end": "x", "bottom": "y"}
+            )
+
+            # Build the triangles indices
+            group["v1"] = group["index"] + size
+            group["v2"] = group["index"] + 2 * size
+            group["v3"] = group["index"] + 3 * size
+
+            tris_1 = group[["index", "v1", "v2"]].rename(columns={"index": "v0"})
+            tris_2 = group[["index", "v2", "v3"]].rename(
+                columns={"index": "v0", "v2": "v1", "v3": "v2"}
+            )
+
+            self._task_data[locality]["data"].replace(
+                group[["worker_id", "start", "end", "index"]].to_numpy()
+            )
+            self._task_data[locality]["verts"].replace(
+                pd.concat([bottom_left, top_left, top_right, bottom_right]).to_numpy()
+            )
+            self._task_data[locality]["tris"].replace(pd.concat([tris_1, tris_2]).to_numpy())
 
     def add_line(
         self,
@@ -293,7 +379,7 @@ class DataCollection:
     def task_mesh_data(self, locality):
         """"""
         if locality not in self._task_data:
-            return [[0, 0, 0]], [[0, 0, 0]], ((0, 1), (0, 1))
+            return [[0, 0, 0, 0]], [[0, 0, 0]], ((0, 1), (0, 1))
 
         # Find the plot ranges
         max_worker_id = max(self._task_data[locality]["workers"])

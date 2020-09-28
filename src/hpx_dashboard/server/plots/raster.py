@@ -102,7 +102,6 @@ def shade_line(data, colors=None, **kwargs):
 
     if isinstance(data, (list, tuple)) and isinstance(colors, (list, tuple)):
         if len(data) != len(colors):
-            print(len(data), colors)
             raise ValueError("colors should have the same length as data.")
 
     if isinstance(data, (dict, pd.DataFrame)):
@@ -386,7 +385,7 @@ class ShadedTaskPlot(ShadedPlot):
                     tooltip = True
 
             if not tooltip:
-                self._hover_tool.tooltips = ""
+                self._hover_tool.tooltips = None
                 self._hovered_mesh = empty_task_mesh[0:2]
 
             id_patch = str(id_patch)

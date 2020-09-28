@@ -13,11 +13,14 @@
 import os
 import time
 import json
+import csv
 from typing import Union
+
+import pandas as pd
 
 from ...common.singleton import Singleton
 from ...common.logger import Logger
-from .collection import DataCollection
+from .collection import DataCollection, format_instance
 
 
 class DataAggregator(metaclass=Singleton):
@@ -37,21 +40,127 @@ class DataAggregator(metaclass=Singleton):
         if not auto_save:
             Logger().info("No data is will be auto-saved during this session.")
 
+        success = False
         if import_path:
-            self._import_session(import_path)
-        elif auto_save:
-            self._create_session(save_path)
+            success = self.import_session(import_path)
+            if not success:
+                Logger().warning(f"Data was not imported from {import_path}.")
 
-    def _import_session(self, path):
+        if auto_save and not success:
+            self.create_session(save_path)
+
+    def import_session(self, path):
         """Imports a previous session into the aggregator.
 
         If the import failed, False is returned. If sucessful, True is returned.
         """
-        self.path = path
-        Logger().info(f"Succesfully imported data from {path}.")
-        return False
 
-    def _create_session(self, path):
+        json_file = None
+        try:
+            json_file = open(os.path.join(path, "session_metadata.json"), "r")
+        except OSError as e:
+            Logger().error(
+                f"Could not open `session_metadata.json` from {path}."
+                f" The following error occured {e.strerror}"
+            )
+            return False
+
+        metadata = json.load(json_file)
+
+        if "session_id" not in metadata:
+            Logger().error("Could not find `session_id` in session_metadata.json.")
+            return False
+
+        if "collections" not in metadata:
+            Logger().error("Could not find `collections` in session_metadata.json.")
+            return False
+
+        if not isinstance(metadata["collections"], list):
+            Logger().error("`collections` in session_metadata.json should be a list.")
+            return False
+
+        collections = []
+        for collection in metadata["collections"]:
+            if not isinstance(collection, dict):
+                Logger().error("A collection in session_metadata.json should be a dict.")
+                return False
+            if "start" not in collection or "end" not in collection or "id" not in collection:
+                Logger().error("Missing keywords in collection (should be start, end, id).")
+                return False
+
+            collection_obj = DataCollection()
+            collection_obj.set_start_time(collection["start"])
+            collection_obj.set_end_time(collection["end"])
+
+            Logger().info("Importing collection " + str(collection["id"]) + " into session...")
+
+            counter_path = os.path.join(path, "counter_data." + str(collection["id"]) + ".csv")
+            task_data_path = os.path.join(path, "task_data." + str(collection["id"]) + ".csv")
+            try:
+                open(counter_path, "r")
+            except OSError as e:
+                Logger().error(f"Could not open {counter_path}: {e.strerror}.")
+            try:
+                open(counter_path, "r")
+            except OSError as e:
+                Logger().error(f"Could not open {task_data_path}: {e.strerror}.")
+
+            # For counter data, reading a csv line by line is faster than opening the csv file
+            # in a pd DataFrame and reading it line by line.
+            # Because the collection object is building a tree-like structure, we can not simply
+            # copy the data of the csv directly into the counter data of the collection.
+            # This method is fast enough for general purpose
+            with open(counter_path, "r") as csvfile:
+                reader = csv.reader(csvfile, delimiter=",")
+                next(reader)
+                for row in reader:
+                    if len(row) != 10:
+                        Logger().error(f"Csv file {counter_path} should have 10 columns.")
+                        return False
+                    (
+                        _,
+                        sequence_number,
+                        timestamp,
+                        timestamp_unit,
+                        value,
+                        value_unit,
+                        countername,
+                        locality,
+                        pool,
+                        thread,
+                    ) = row
+
+                    collection_obj.add_line(
+                        countername,
+                        format_instance(locality, pool, thread),
+                        "",
+                        sequence_number,
+                        timestamp,
+                        timestamp_unit,
+                        value,
+                        value_unit,
+                    )
+
+            # However, for task data, which can get quite large, adding row by row will take a long
+            # time. This is why a special import task data from dataframe has been built in the
+            # DataCollection object.
+            task_data = pd.read_csv(task_data_path)
+            collection_obj.import_task_data(task_data)
+
+            collections.append(collection_obj)
+
+        self.path = path
+        self.session = metadata["session_id"]
+        self.data = collections
+        self.last_run = len(self.data) - 1
+        self.current_run = None
+        self.current_data = None
+        self.metadata = metadata
+        self.metadata_path = os.path.join(self.path, "session_metadata.json")
+        Logger().info(f"Succesfully imported data from {path}.")
+        return True
+
+    def create_session(self, path):
         """Creates a folder with the correct structure for saving sessions.
 
         hpx_data.<timestamp>/
@@ -161,6 +270,28 @@ class DataAggregator(metaclass=Singleton):
         self.last_run = self.current_run
         self.current_data = None
         self.current_run = None
+
+        # Save the collected data
+        if self.auto_save and self.path:
+            collection = self.data[self.last_run]
+
+            counter_data = collection.export_counter_data()
+            task_data = collection.export_task_data()
+            start = collection.start_time
+            end = collection.end_time
+
+            self.metadata["collections"].append(
+                {
+                    "start": start,
+                    "end": end,
+                    "id": int(start),
+                }
+            )
+
+            counter_data.to_csv(os.path.join(self.path, f"counter_data.{int(start)}.csv"))
+            task_data.to_csv(os.path.join(self.path, f"task_data.{int(start)}.csv"))
+
+            self._save_metadata()
 
     def new_collection(self, start_time: float) -> None:
         """Adds a new DataCollection along with a timestamp to the aggregator.
