@@ -238,17 +238,10 @@ class CustomCounterWidget(BaseWidget):
 
         for plot_id, collection, countername, instance, name in deleted_lines:
             if len(self._plots) >= plot_id:
-                self._plots[plot_id - 1].remove_line(
-                    countername, instance, collection, name, hold_update=True
-                )
+                self._plots[plot_id - 1].remove_line(countername, instance, collection, name)
 
         for plot_id, collection, countername, instance, name in new_lines:
-            self._plots[plot_id - 1].add_line(
-                countername, instance, collection, name, hold_update=True
-            )
-
-        for plot in self._plots:
-            plot._make_figure()
+            self._plots[plot_id - 1].add_line(countername, instance, collection, name)
 
         self._lines_info = lines
 

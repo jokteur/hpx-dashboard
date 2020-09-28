@@ -49,6 +49,7 @@ def args_parse(argv):
     parser.add_argument(
         "--no-auto-save",
         dest="no_save",
+        action="store_true",
         help="Disable auto-save feature of sessions.",
         default=False,
     )

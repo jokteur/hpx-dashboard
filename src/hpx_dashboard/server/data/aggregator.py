@@ -36,6 +36,7 @@ class DataAggregator(metaclass=Singleton):
 
         self.session = str(int(time.time()))
         self.auto_save = auto_save
+        self.path = None
 
         if not auto_save:
             Logger().info("No data is will be auto-saved during this session.")
