@@ -88,8 +88,8 @@ class DataCollection:
     def __init__(self):
         self.start_time = None
         self.end_time = None
-        self.counter_info = {}
-        self.data = {}
+        self._counter_info = {}
+        self._data = {}
 
         # Task data
         self._task_data = {}
@@ -338,8 +338,8 @@ class DataCollection:
         if parameters:
             name = countername + "@" + parameters
 
-        if name not in self.data:
-            self.data[name] = {}
+        if name not in self._data:
+            self._data[name] = {}
 
         if isinstance(instance, tuple):
             locality, pool, worker_id = instance
@@ -367,14 +367,14 @@ class DataCollection:
         self.line_timing.append(time.time() - t)
 
         line = [int(sequence_number), timestamp, timestamp_unit, value, value_unit]
-        if instance not in self.data[name]:
-            self.data[name][instance] = []
+        if instance not in self._data[name]:
+            self._data[name][instance] = []
 
-        self.data[name][instance].append(line)
+        self._data[name][instance].append(line)
 
     def get_counter_names(self):
         """Returns the list of available counters that are currently in the collection."""
-        return list(self.data.keys())
+        return list(self._data.keys())
 
     def task_mesh_data(self, locality):
         """"""
@@ -413,14 +413,14 @@ class DataCollection:
         ndarray where the columns in order are sequence number, timestamp, timestamp unit,
         value and value unit
         """
-        if countername not in self.data:
+        if countername not in self._data:
             return np.array([])
 
-        if instance in self.data[countername]:
-            if index >= len(self.data[countername][instance]):
+        if instance in self._data[countername]:
+            if index >= len(self._data[countername][instance]):
                 return np.array([])
 
-            return np.array(self.data[countername][instance][index:], dtype="O")
+            return np.array(self._data[countername][instance][index:], dtype="O")
         else:
             return np.array([])
 
@@ -478,8 +478,8 @@ class DataCollection:
         # Note: this is not the most efficient way to do this and for longer runs this can take a
         # few hundred of ms
         dfs = []
-        for name in self.data.keys():
-            for instance in self.data[name].keys():
+        for name in self._data.keys():
+            for instance in self._data[name].keys():
                 data = self.get_data(name, instance)
                 df = pd.DataFrame(
                     data,
@@ -523,7 +523,7 @@ class DataCollection:
 
     def set_counter_infos(self, counter_info):
         """Sets the counter infos of the collection."""
-        self.counter_info = counter_info
+        self._counter_info = counter_info
 
     def line_to_hash(self, countername, instance):
         """Returns the associated hashed countername and instance stored in the object."""

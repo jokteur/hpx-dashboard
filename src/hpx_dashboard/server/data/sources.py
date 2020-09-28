@@ -51,11 +51,11 @@ class DataSources(metaclass=Singleton):
             )
 
             if data.ndim == 2:
-                self._data[doc][identifier]["last_index"] = int(data[-1, 1])
                 data_dict = {
                     f"{identifier}_time": data[:, 1],
                     f"{identifier}": data[:, 3],
                 }
+                self._data[doc][identifier]["last_index"] = data[-1, 0]
                 self._num_updates[doc][identifier] += 1
         return data_dict
 

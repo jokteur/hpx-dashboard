@@ -130,6 +130,9 @@ class DataAggregator(metaclass=Singleton):
                         thread,
                     ) = row
 
+                    if pool == "":
+                        pool = None
+
                     collection_obj.add_line(
                         countername,
                         format_instance(locality, pool, thread),
