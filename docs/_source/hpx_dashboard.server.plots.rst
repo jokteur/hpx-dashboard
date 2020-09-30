@@ -36,14 +36,6 @@ hpx\_dashboard.server.plots.tasks module
    :undoc-members:
    :show-inheritance:
 
-hpx\_dashboard.server.plots.threads module
-------------------------------------------
-
-.. automodule:: hpx_dashboard.server.plots.threads
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 Module contents
 ---------------
 

@@ -39,6 +39,14 @@ hpx\_dashboard.server.components module
    :undoc-members:
    :show-inheritance:
 
+hpx\_dashboard.server.notebook module
+-------------------------------------
+
+.. automodule:: hpx_dashboard.server.notebook
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 hpx\_dashboard.server.tcp\_listener module
 ------------------------------------------
 
@@ -51,6 +59,14 @@ hpx\_dashboard.server.utils module
 ----------------------------------
 
 .. automodule:: hpx_dashboard.server.utils
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+hpx\_dashboard.server.worker module
+-----------------------------------
+
+.. automodule:: hpx_dashboard.server.worker
    :members:
    :undoc-members:
    :show-inheritance:

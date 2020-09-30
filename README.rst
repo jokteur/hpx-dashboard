@@ -124,3 +124,55 @@ This tool is *not* intended to replace more advanced profiling tools such as vam
 current limitations with Python and rendering, this tool cannot process extremely large datasets
 which typically result from very long executions of HPX applications.
 
+^^^^^
+Usage
+^^^^^
+
+The hpx dashboard is divided into two separate command lines: ``hpx-dashboard-agent`` and 
+``hpx-dashboard-server``. The role of the agent is to collect the data and parse it. With
+the agent, you can filter out hpx data from the standard output and redirect non hpx data to a 
+file or to the console. The agent connects to the server (also called the plotting server), and
+sends data to it through TCP. The server will collect and organise the incoming data. Finally, the
+user connects to the plotting server through the web-browser. It is also possible to do the plotting
+directly on a jupyter notebook (see documentation).
+
+.. image:: docs/_static/images/dashboard_explanation.png
+    :width: 95%
+
+First start the server with
+
+.. code:: bash
+
+    hpx-dashboard-server
+
+, you can then connect with the browser to ``localhost:5006`` and interact with the widgets.
+
+Then launch the hpx program with a performance counter (example program):
+
+.. code:: bash
+
+    1d_stencil_4 --hpx:print-counter=/scheduler/* --hpx:print-counter=/threads/* | hpx-dashboard-agent
+
+which will automatically send the data to the server.
+
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+Building the documentation
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+For building the documentation, `Sphinx <https://www.sphinx-doc.org/en/master/index.html>`_ needs
+to be installed on the environment. It is necessary that the dashboard is also installed as a package
+in the same environment for the source code generation.
+
+Install sphinx and the rtd theme:
+
+.. code:: bash
+
+    pip install sphinx sphinx-rtd-theme
+
+And then build the doc:
+
+.. code:: bash
+
+    cd docs
+    make html
+    

@@ -22,6 +22,23 @@ from .worker import worker_thread, WorkerQueue
 
 
 def start(port=5267, auto_save=True, save_path="", import_path=""):
+    """Starts the TCP server for incoming data and the bokeh ioloop.
+
+    Can only be called once in a session.
+
+    Arguments
+    ---------
+    port : int
+        port on which the TCP client listens for incoming data
+    auto_save : bool
+        if True, the session will be automatically saved at save_path.
+        A directory is created for each session `hpx_data.<timestamp>`.
+    save_path : str
+        path where the session will be saved. Is only used if auto_save==True
+    import_path : str
+        imports a previous session into the new session.
+        Any new data coming to this session will be saved in the imported session.
+    """
     DataAggregator(auto_save=auto_save, save_path=save_path, import_path=import_path)
 
     tcp_queue = Queue()
@@ -42,12 +59,15 @@ def start(port=5267, auto_save=True, save_path="", import_path=""):
 
 
 def scheduler():
+    """Shows the scheduler plot in a notebook."""
     show(lambda doc: scheduler_doc({}, doc))
 
 
 def tasks():
+    """Shows the task plot in a notebook."""
     show(lambda doc: tasks_doc({}, doc))
 
 
 def custom_counter():
+    """Shows the custom counter plot widget in a notebook."""
     show(lambda doc: custom_counter_doc({}, doc))

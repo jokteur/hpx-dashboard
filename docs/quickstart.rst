@@ -28,7 +28,8 @@ which allows to fully take advantage of parallel systems, from low power devices
 clusters. This means that the libary allows for task-based programming: the user can spawn millions
 of threads (i.e. tasks) with minimal overhead.
 
-To learn more about HPX, visit the `official documentation <https://hpx-docs.stellar-group.org/latest/html/index.html>`_ or the `official github <https://github.com/STEllAR-GROUP/hpx>`_.
+To learn more about HPX, visit the `official documentation <https://hpx-docs.stellar-group.org/latest/html/index.html>`_ 
+or the `official github <https://github.com/STEllAR-GROUP/hpx>`_.
 
 ^^^^^^^^^^^^^
 The dashboard
@@ -65,9 +66,11 @@ Based on the previous figure, here are some explanations for the terms used in t
 * **Task**: A task designates some piece of work that can be executed on a thread. A basic HPX task has a name, the ID of the worker thread on which it is executed, a beginning and an end. All the finished tasks are plotted on the dashboard in the `task plot` tab.
 
 
-------------
+
 Installation
 ------------
+
+.. _quickstart_install:
 
 As the dashboard is almost entirely built with Python, installation can be done through the usual
 ``pip install``. It is recommended to create a virtual environnement:
@@ -141,7 +144,3 @@ little bit different. To create the virtual environnement:
     source ./path_for_the_venv/bin/activate
 
 Then the rest of the installation should be similar as described above.
-
------
-Usage
------
