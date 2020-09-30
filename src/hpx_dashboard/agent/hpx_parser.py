@@ -63,6 +63,7 @@ class HPXParser:
             In pratice the buffer of the parser gets filled until a certain time and
             then the data gets sent once the time is over.
         """
+
         self.counter_descriptions = {}
         self.collect_counter_infos = False
         self.current_counter_name = ""

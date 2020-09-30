@@ -25,8 +25,7 @@ from .hpx_parser import HPXParser
 
 
 def args_parse(argv):
-    """Parses the argument list of argv.
-    """
+    """Parses the argument list of argv."""
     parser = argparse.ArgumentParser(
         description="The hpx-dashboard agent is used for parsing and redirecting hpx performance "
         "counter data. This data can be processed in the hpx-dashboard server which allows "
@@ -53,11 +52,12 @@ def args_parse(argv):
     )
 
     parser.add_argument(
-        "--strip-hpx-counters",
-        dest="strip_hpx_counters",
+        "--send-all-stdout",
+        dest="send_all_stdout",
         action="store_true",
         help="when printing or redirecting the output, the agent strips the lines that countain "
-        "informations about hpx counters.",
+        "informations about hpx counters. Setting this option will send all the stdout to the"
+        "server.",
         default=False,
     )
 
@@ -82,7 +82,7 @@ def args_parse(argv):
         dest="buffer_timeout",
         help="timeout (in ms) for the buffer to be filled before the data is sent over tcp. "
         "If the timeout is set to 0, the data is sent immediately after each collection.",
-        default=1,
+        default=10,
     )
 
     parser.add_argument(
@@ -145,10 +145,14 @@ def agent(argv):
             )
             return 1
 
+    strip_hpx_data = True
+    if opt.send_all_stdout:
+        strip_hpx_data = False
+
     parser = HPXParser(
         opt.out_file,
         opt.print_out,
-        opt.strip_hpx_counters,
+        strip_hpx_data,
         opt.send_stdout,
         int(opt.buffer_timeout),
     )
@@ -176,8 +180,9 @@ def agent(argv):
     queue.put(None)
     stop_signal.stop = True
     tcp_thread.join()
+
     return 0
 
 
 def main():
-    sys.exit(agent(sys.argv))
+    agent(sys.argv)
