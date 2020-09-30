@@ -477,7 +477,11 @@ class DataCollection:
 
         # Note: this is not the most efficient way to do this and for longer runs this can take a
         # few hundred of ms
-        dfs = []
+        dfs = [
+            pd.DataFrame(
+                columns=["sequence_number", "timestamp", "timestamp_unit", "value", "value_unit"]
+            )
+        ]
         for name in self._data.keys():
             for instance in self._data[name].keys():
                 data = self.get_data(name, instance)
@@ -503,7 +507,7 @@ class DataCollection:
 
     def export_task_data(self):
         """Returns a pandas DataFrame that contains all the HPX task data."""
-        dfs = []
+        dfs = [pd.DataFrame(columns=["worker_id", "start", "end", "name"])]
         for locality in self.get_localities():
             task_data, task_names = self.task_data(locality)
             df = pd.DataFrame(task_data, columns=["worker_id", "start", "end", "name"])
