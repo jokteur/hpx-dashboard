@@ -7,7 +7,7 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""
+"""Task plot widget.
 """
 from bokeh.layouts import column
 from bokeh.models import MultiChoice  # , HoverTool
@@ -16,8 +16,7 @@ from .base import BaseElement, get_figure_options
 from ..data import DataSources
 from .raster import ShadedTaskPlot, empty_task_mesh
 from ..widgets import BaseWidget
-
-# from ..utils import format_time
+from ...common.constants import task_cmap
 
 
 class FilterWidget(BaseWidget):
@@ -48,6 +47,7 @@ class TasksPlot(BaseElement):
         worker="*",
         collection=None,
         refresh_rate=500,
+        cmap=task_cmap,
         **kwargs,
     ):
         """"""
@@ -84,6 +84,7 @@ class TasksPlot(BaseElement):
             [],
             [],
             refresh_rate=refresh_rate,
+            cmap=cmap,
             **defaults_opts,
         )
 

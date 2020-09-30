@@ -22,6 +22,7 @@ from .utils import Notifier
 from .data import format_instance
 from .plots import TasksPlot, TimeSeries
 from .widgets import DataCollectionWidget, CustomCounterWidget
+from ..common.constants import task_cmap
 
 env = Environment(
     loader=FileSystemLoader(os.path.join(os.path.dirname(__file__), "http", "templates"))
@@ -62,9 +63,9 @@ def scheduler_widget(doc, notifier):
     return scheduler_plot.layout()
 
 
-def tasks_widget(doc, notifier):
+def tasks_widget(doc, notifier, cmap):
     """Defines the tab for the task plot"""
-    task_plot = TasksPlot(doc)
+    task_plot = TasksPlot(doc, cmap=cmap)
     notifier.subscribe(task_plot.set_collection)
     return task_plot.layout()
 
@@ -99,7 +100,10 @@ def tasks_doc(extra, doc):
     notifier = Notifier()
 
     widget = DataCollectionWidget(doc, notifier.notify)
-    tasks = tasks_widget(doc, notifier)
+    cmap = task_cmap
+    if "cmap" in extra:
+        cmap = extra["cmap"]
+    tasks = tasks_widget(doc, notifier, cmap)
 
     doc.add_root(column(widget.layout(), tasks))
 

@@ -280,6 +280,7 @@ class ShadedTaskPlot(ShadedPlot):
         names,
         data,
         refresh_rate=500,
+        cmap=task_cmap,
         **kwargs,
     ):
         self._vertices = vertices
@@ -294,10 +295,12 @@ class ShadedTaskPlot(ShadedPlot):
 
         super().__init__(doc, refresh_rate, **kwargs)
 
+        self.task_cmap = cmap
+
         self._img, self._hover_agg = shade_mesh(
             vertices,
             triangles,
-            task_cmap,
+            self.task_cmap,
             plot_width=self._defaults_opts["plot_width"],
             plot_height=self._defaults_opts["plot_height"],
             x_range=self._current_x_range,
@@ -414,7 +417,7 @@ class ShadedTaskPlot(ShadedPlot):
                 self._img, self._hover_agg = shade_mesh(
                     self._vertices,
                     self._triangles,
-                    task_cmap,
+                    self.task_cmap,
                     plot_width=self._defaults_opts["plot_width"],
                     plot_height=self._defaults_opts["plot_height"],
                     x_range=self._current_x_range,

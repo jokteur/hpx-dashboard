@@ -187,8 +187,8 @@ class DataCollection:
             }
 
         worker_id = float(worker_id)
-        start = float(start) - self._task_data[locality]["min_time"]
-        end = float(end) - self._task_data[locality]["min_time"]
+        start = float(start)  # - self._task_data[locality]["min_time"]
+        end = float(end)  # - self._task_data[locality]["min_time"]
 
         if start < self._task_data[locality]["min"]:
             self._task_data[locality]["min"] = start
@@ -227,7 +227,7 @@ class DataCollection:
 
         self.timings.append([t1])
 
-    def import_task_data(self, task_data):
+    def import_task_data(self, task_data, color_hash_dict=None):
         """Imports task data into the collection from a pandas DataFrame in one go.
 
         This function is there to speed-up import, but in fact does the same thing as add_task_data
@@ -237,11 +237,19 @@ class DataCollection:
         task_data : pd.DataFrame
             dataframe that should have the columns `name`, `locality`, `worker_id`, `start` and
             `end`
+        color_hash_dict : dict
+            specify a custom color hash dictionnary for the task names. This option should be used
+            together with the cmap option in the task plot.
         """
+        if task_data.empty:
+            return
+
+        self._task_data = {}
 
         df = task_data.groupby("locality", sort=False)
         for locality, group in df:
             locality = str(locality)
+            group = group.reindex()
             min_time = group["start"].min()
             max_time = group["end"].max()
             self._task_data[locality] = {
@@ -261,9 +269,14 @@ class DataCollection:
 
             size = len(group)
             group["index"] = np.arange(size)
-            group["color_hash"] = group["name"].apply(
-                lambda name: int(hashlib.md5(name.encode("utf-8")).hexdigest(), 16) % len(task_cmap)
-            )
+
+            if color_hash_dict:
+                group["color_hash"] = group["name"].apply(lambda name: color_hash_dict[name])
+            else:
+                group["color_hash"] = group["name"].apply(
+                    lambda name: int(hashlib.md5(name.encode("utf-8")).hexdigest(), 16)
+                    % len(task_cmap)
+                )
 
             group["top"] = group["worker_id"] + 1 / 2 * (1 - task_plot_margin)
             group["bottom"] = group["worker_id"] - 1 / 2 * (1 - task_plot_margin)
@@ -296,7 +309,7 @@ class DataCollection:
                 group[["worker_id", "start", "end", "index"]].to_numpy()
             )
             self._task_data[locality]["verts"].replace(
-                pd.concat([bottom_left, top_left, top_right, bottom_right]).to_numpy()
+                pd.concat([bottom_left, top_left, top_right, bottom_right]).to_numpy().astype(float)
             )
             self._task_data[locality]["tris"].replace(pd.concat([tris_1, tris_2]).to_numpy())
 

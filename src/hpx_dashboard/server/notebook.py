@@ -11,6 +11,7 @@
 
 from queue import Queue
 import threading
+import time
 
 from bokeh.plotting import output_notebook, show
 
@@ -19,6 +20,7 @@ from .data import DataAggregator
 from .tcp_listener import TCP_Server, handle_response
 from .components import scheduler_doc, tasks_doc, custom_counter_doc
 from .worker import worker_thread, WorkerQueue
+from ..common.constants import task_cmap
 
 
 def start(port=5267, auto_save=True, save_path="", import_path=""):
@@ -63,11 +65,37 @@ def scheduler():
     show(lambda doc: scheduler_doc({}, doc))
 
 
-def tasks():
-    """Shows the task plot in a notebook."""
-    show(lambda doc: tasks_doc({}, doc))
+def tasks(cmap=task_cmap):
+    """Shows the task plot in a notebook.
+
+    Arguments
+    ---------
+    cmap : list, colormap, str
+        colormap for the task plot. Usefull if you want to import your own task data
+        into the DataAggregator and change the colors. Otherwise, if you just want to redefine the
+        colormap of the task plot, the length should be 256 if given as a list.
+    """
+    show(lambda doc: tasks_doc({"cmap": cmap}, doc))
 
 
 def custom_counter():
     """Shows the custom counter plot widget in a notebook."""
     show(lambda doc: custom_counter_doc({}, doc))
+
+
+def import_tasks_from_df(df, color_hash_dict=None):
+    """Imports task data into a new collection in the DataAggregator.
+
+    Arguments
+    ---------
+    df : pd.DataFrame
+        dataframe that should have the columns `name`, `locality`, `worker_id`, `start` and
+        `end`
+    color_hash_dict : dict
+        color lookup for the task names (used later for the cmap in the task plot). Lookup should
+        point to floating numbers.
+    """
+    DataAggregator().new_collection(time.time())
+    new_collection = DataAggregator().get_live_collection()
+    new_collection.import_task_data(df, color_hash_dict)
+    new_collection = DataAggregator().finalize_current_collection(time.time())

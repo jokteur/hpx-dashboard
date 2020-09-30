@@ -89,11 +89,11 @@ class DataAggregator(metaclass=Singleton):
                 Logger().error("Missing keywords in collection (should be start, end, id).")
                 return False
 
+            Logger().info("Importing collection " + str(collection["id"]) + " into session...")
+
             collection_obj = DataCollection()
             collection_obj.set_start_time(collection["start"])
             collection_obj.set_end_time(collection["end"])
-
-            Logger().info("Importing collection " + str(collection["id"]) + " into session...")
 
             counter_path = os.path.join(path, "counter_data." + str(collection["id"]) + ".csv")
             task_data_path = os.path.join(path, "task_data." + str(collection["id"]) + ".csv")
@@ -241,7 +241,7 @@ class DataAggregator(metaclass=Singleton):
         """Returns the most recent collection in memory.
 
         If there is a live collection, then it is returned. Otherwise, the most recent collection
-        is returned.
+        is returned. If there are no collection in the session, then None is returned.
         """
         collection = None
         if self.get_current_run():
