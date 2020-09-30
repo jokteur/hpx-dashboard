@@ -76,7 +76,14 @@ def standalone_doc(extra, doc):
 
     widget = DataCollectionWidget(doc, notifier.notify)
 
-    task_tab = Panel(child=tasks_widget(doc, notifier), title="Tasks plot")
+    cmap = task_cmap
+    if "cmap" in extra:
+        cmap = extra["cmap"]
+
+    task_tab = Panel(
+        child=tasks_widget(doc, notifier, cmap),
+        title="Tasks plot",
+    )
     scheduler_tab = Panel(child=scheduler_widget(doc, notifier), title="Scheduler utilization")
     custom_counter_tab = Panel(
         child=custom_counters_widget(doc, notifier), title="Customizable plots"
